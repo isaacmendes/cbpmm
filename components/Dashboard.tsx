@@ -10,6 +10,12 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStatus }) => {
   const [selectedSubmission, setSelectedSubmission] = useState<OfficerSubmission | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const showNotification = (message: string) => {
+    setNotification(message);
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   const exportToCSV = () => {
     const headers = ["ID", "Nome", "RE", "Email", "Telefone", "Status", "Tipo", "Data"];
@@ -35,12 +41,11 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showNotification("Relatório Excel exportado com sucesso!");
   };
 
-  // Função para baixar arquivos Base64 com segurança convertendo para Blob
   const handleDownloadFile = (base64Data: string, fileName: string) => {
     try {
-      // Remove o prefixo data:image/png;base64, se existir
       const parts = base64Data.split(';base64,');
       const contentType = parts[0].split(':')[1];
       const raw = window.atob(parts[1] || parts[0]);
@@ -60,9 +65,9 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
       document.body.appendChild(a);
       a.click();
       
-      // Limpeza
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      showNotification(`Arquivo "${fileName}" baixado com sucesso!`);
     } catch (err) {
       console.error("Erro ao processar download:", err);
       alert("Erro ao baixar o arquivo. O formato pode estar corrompido.");
@@ -80,7 +85,21 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
+    <div className="max-w-7xl mx-auto px-4 py-12 relative">
+      {/* Notificação Toast */}
+      {notification && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-fadeIn">
+          <div className="bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10">
+            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <span className="text-sm font-bold">{notification}</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Painel Jurídico</h1>
