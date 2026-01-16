@@ -62,17 +62,20 @@ const App: React.FC = () => {
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `${folderName}/${fileName}`;
 
-        // Tentativa de upload direto do objeto File
-        const { error: uploadError, data: uploadData } = await supabase.storage
+        // Converter File para ArrayBuffer antes do upload
+        // Isso às vezes ajuda a evitar que o navegador trate como uma requisição "complexa"
+        const arrayBuffer = await fileObject.file.arrayBuffer();
+
+        const { error: uploadError } = await supabase.storage
           .from('officer-documents')
-          .upload(filePath, fileObject.file, {
-            cacheControl: '3600',
-            upsert: false
+          .upload(filePath, arrayBuffer, {
+            contentType: fileObject.file.type,
+            upsert: true
           });
 
         if (uploadError) {
           console.error("Erro de Upload:", uploadError);
-          throw new Error(`Erro no Storage: ${uploadError.message}. Verifique o CORS e as permissões do Bucket.`);
+          throw new Error(uploadError.message);
         }
 
         const { data: { publicUrl } } = supabase.storage
@@ -99,17 +102,17 @@ const App: React.FC = () => {
         }]);
 
       if (insertError) {
-        throw new Error(`Erro no Database: ${insertError.message}`);
+        throw new Error(`Erro no Banco: ${insertError.message}`);
       }
 
       setShowSuccess(true);
       if (isAuthenticated) fetchSubmissions();
     } catch (error: any) {
-      console.error("Erro detalhado na submissão:", error);
-      // Alerta mais explicativo para o usuário
+      console.error("Erro na submissão:", error);
       const msg = error.message || "Erro desconhecido";
-      if (msg.includes("fetch")) {
-        alert("Erro de conexão (CORS). Por favor, configure o CORS nas configurações de API do Supabase para permitir o domínio deste site.");
+      
+      if (msg.toLowerCase().includes("fetch") || msg.includes("Failed to fetch")) {
+        alert("O Supabase bloqueou a conexão (CORS).\n\nComo você não achou a opção no painel, tente:\n1. Clique em 'Storage' no menu lateral\n2. Clique em 'Settings' dentro do Storage\n3. Verifique se existe um botão 'CORS' lá (às vezes ele muda de lugar)");
       } else {
         alert(`Falha no envio: ${msg}`);
       }
@@ -169,7 +172,6 @@ const App: React.FC = () => {
           <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-xs w-full">
             <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="font-bold text-slate-800">Enviando Arquivos...</p>
-            <p className="text-xs text-slate-400 mt-2 text-balance">Isso pode levar alguns segundos dependendo da sua conexão.</p>
           </div>
         </div>
       )}
