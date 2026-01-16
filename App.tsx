@@ -34,14 +34,14 @@ const App: React.FC = () => {
       if (data) {
         const mapped = data.map(sub => ({
           id: sub.id,
-          name: sub.name,
-          re: sub.re,
-          email: sub.email,
-          phone: sub.phone,
-          status: sub.status,
+          name: sub.name || 'Sem nome',
+          re: sub.re || '---',
+          email: sub.email || '',
+          phone: sub.phone || '',
+          status: sub.status || 'Pendente',
           createdAt: sub.created_at,
-          files: sub.files,
-          isJudicial: sub.is_judicial,
+          files: sub.files || [],
+          isJudicial: !!sub.is_judicial,
           agreedToTerms: true
         }));
         setSubmissions(mapped);
@@ -61,10 +61,9 @@ const App: React.FC = () => {
   };
 
   const handleSubmission = async (formData: any) => {
-    // Validação de segurança: as chaves existem?
     const supabaseUrl = (supabase as any).supabaseUrl;
     if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
-      alert("ERRO DE CONFIGURAÇÃO:\nAs chaves do Supabase não foram configuradas na Vercel.\n\n1. Vá no painel da Vercel\n2. Settings -> Environment Variables\n3. Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY");
+      alert("ERRO: Chaves do Supabase não configuradas na Vercel.");
       return;
     }
 
@@ -81,27 +80,30 @@ const App: React.FC = () => {
         });
       }
 
+      const payload = {
+        name: formData.name,
+        re: formData.re,
+        email: formData.email,
+        phone: formData.phone,
+        is_judicial: formData.isJudicial,
+        status: 'Pendente',
+        files: processedFiles
+      };
+
       const { error: insertError } = await supabase
         .from('submissions')
-        .insert([{
-          name: formData.name,
-          re: formData.re,
-          email: formData.email,
-          phone: formData.phone,
-          is_judicial: formData.isJudicial,
-          status: 'Pendente',
-          files: processedFiles
-        }]);
+        .insert([payload]);
 
       if (insertError) throw insertError;
+      
       setShowSuccess(true);
     } catch (error: any) {
       console.error("Erro detalhado:", error);
-      if (error.message === "Failed to fetch") {
-        alert("ERRO DE CONEXÃO (Failed to fetch):\n\nIsso geralmente acontece porque:\n1. As chaves na Vercel estão erradas.\n2. Um AdBlock está bloqueando o site.\n3. O esquema 'public' não foi exposto no Supabase (conforme a foto anterior).");
-      } else {
-        alert(`Erro: ${error.message || "Falha na comunicação com o banco de dados."}`);
+      let msg = error.message || "Erro desconhecido";
+      if (msg.includes("column")) {
+        msg = "Faltam colunas no seu banco de dados Supabase. Você precisa adicionar as colunas: name, re, email, phone, is_judicial, status e files na tabela 'submissions'.";
       }
+      alert(`Erro no Banco: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
