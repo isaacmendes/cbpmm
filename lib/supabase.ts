@@ -1,18 +1,16 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Define the environment variables safely. 
-// In some environments, process.env is used, in Vite import.meta.env is used.
-// We will check both to ensure compatibility.
-
 const getEnv = (key: string): string => {
-  // Try Vite's import.meta.env
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-    return (import.meta as any).env[key] || '';
+  // Use bracket notation to access properties on import.meta to avoid TS compiler errors if types are missing
+  // or use the standard Vite approach if @types/vite is not available.
+  const meta = import.meta as any;
+  if (meta.env && meta.env[key]) {
+    return meta.env[key];
   }
-  // Try process.env
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env[key] || '';
+  // Fallback para process.env (Vercel Edge/SSR)
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key] as string;
   }
   return '';
 };
@@ -20,13 +18,8 @@ const getEnv = (key: string): string => {
 const supabaseUrl = getEnv('VITE_SUPABASE_URL');
 const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    "Supabase configuration missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables."
-  );
-}
-
+// Se as variáveis estiverem vazias, o Supabase jogará erro de 'Invalid URL' ou 'Failed to fetch'
 export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co', 
-  supabaseAnonKey || 'placeholder'
+  supabaseUrl || 'https://chyxrfpcxptdmtbhvmui.supabase.co', 
+  supabaseAnonKey || ''
 );

@@ -56,24 +56,32 @@ const App: React.FC = () => {
     try {
       const uploadedFiles = [];
 
+      // Processamento de arquivos
       for (const fileData of formData.files) {
-        // Obter o blob do arquivo através da URL temporária criada no formulário
-        const response = await fetch(fileData.url);
-        const blob = await response.blob();
+        let blob;
+        try {
+          const res = await fetch(fileData.url);
+          blob = await res.blob();
+        } catch (e) {
+          throw new Error(`Não foi possível processar o arquivo: ${fileData.name}`);
+        }
         
-        // Gerar um nome único para evitar sobreposição
         const fileExt = fileData.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `${formData.re.replace('-', '')}/${fileName}`;
+        const folderName = formData.re.replace(/[^0-9]/g, '');
+        const filePath = `${folderName}/${fileName}`;
 
-        const { error: uploadError, data: uploadData } = await supabase.storage
+        // Upload para o Bucket 'officer-documents'
+        const { error: uploadError } = await supabase.storage
           .from('officer-documents')
           .upload(filePath, blob, {
             cacheControl: '3600',
             upsert: false
           });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw new Error(`Erro no servidor de arquivos (Storage): ${uploadError.message}`);
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from('officer-documents')
@@ -84,9 +92,11 @@ const App: React.FC = () => {
           name: fileData.name,
           url: publicUrl
         });
+
+        URL.revokeObjectURL(fileData.url);
       }
 
-      // Inserção no banco PostgreSQL
+      // Inserção na tabela 'submissions'
       const { error: insertError } = await supabase
         .from('submissions')
         .insert([{
@@ -99,13 +109,15 @@ const App: React.FC = () => {
           files: uploadedFiles
         }]);
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        throw new Error(`Erro no banco de dados (Table): ${insertError.message}`);
+      }
 
       setShowSuccess(true);
       if (isAuthenticated) fetchSubmissions();
     } catch (error: any) {
-      console.error("Erro crítico na submissão:", error);
-      alert("Falha no envio: " + (error.message || "Erro de conexão com o banco de dados."));
+      console.error("Erro detalhado:", error);
+      alert(error.message || "Ocorreu um erro inesperado. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -120,42 +132,20 @@ const App: React.FC = () => {
       setUsername('');
       setPassword('');
     } else {
-      alert('Credenciais administrativas incorretas.');
+      alert('Credenciais incorretas.');
     }
   };
 
   if (showLogin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6 animate-fadeIn">
-        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-2xl border border-slate-200">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800">Acesso Restrito</h2>
-            <p className="text-slate-500 text-sm">Painel exclusivo para advogados</p>
-          </div>
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-2xl">
+          <h2 className="text-2xl font-bold text-center mb-6">Acesso Administrativo</h2>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input 
-              type="text" 
-              placeholder="Usuário"
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-            <input 
-              type="password" 
-              placeholder="Senha"
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg">Entrar</button>
-            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm">Voltar</button>
+            <input type="text" placeholder="Usuário" className="w-full px-4 py-3 rounded-xl border border-slate-200" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <input type="password" placeholder="Senha" className="w-full px-4 py-3 rounded-xl border border-slate-200" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">Entrar</button>
+            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm hover:text-slate-600 transition-colors">Voltar</button>
           </form>
         </div>
       </div>
@@ -164,28 +154,27 @@ const App: React.FC = () => {
 
   if (showSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl text-center animate-fadeIn">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 animate-fadeIn">
+        <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl text-center">
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
           </div>
-          <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Enviado!</h2>
-          <p className="text-slate-500 mb-8">Seus documentos foram salvos no banco de dados e a assessoria jurídica foi notificada.</p>
-          <button onClick={() => setShowSuccess(false)} className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold">Novo Envio</button>
+          <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Sucesso!</h2>
+          <p className="text-slate-500 mb-8">Seus documentos foram enviados. Nossa equipe jurídica entrará em contato em breve.</p>
+          <button onClick={() => setShowSuccess(false)} className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all">Novo Envio</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen relative bg-slate-50">
+    <div className="min-h-screen bg-slate-50">
       {isSubmitting && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-xs w-full animate-bounce">
+          <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-xs w-full">
             <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="font-bold text-slate-800">Salvando no Banco...</p>
+            <p className="font-bold text-slate-800">Enviando Documentos...</p>
+            <p className="text-xs text-slate-400 mt-2">Por favor, não feche esta janela até terminar.</p>
           </div>
         </div>
       )}
@@ -195,10 +184,6 @@ const App: React.FC = () => {
       ) : (
         <Dashboard submissions={submissions} onBack={() => setView(ViewMode.CLIENT)} />
       )}
-      
-      <footer className="py-8 text-center text-slate-400 text-xs uppercase tracking-widest">
-        <p>© 2026 Jurídico Militar • Supabase + Vercel Cloud Integration</p>
-      </footer>
     </div>
   );
 };
