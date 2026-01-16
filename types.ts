@@ -5,7 +5,7 @@ export interface OfficerSubmission {
   re: string;
   email: string;
   phone: string;
-  status: 'Pendente' | 'Em Análise' | 'Concluído';
+  status: 'Pendente' | 'Em Análise' | 'Ação Protocolada' | 'Aguardando Liminar' | 'Concluído';
   createdAt: string;
   files: {
     category: string;

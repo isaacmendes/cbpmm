@@ -51,6 +51,22 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateStatus = async (id: string, newStatus: OfficerSubmission['status']) => {
+    try {
+      const { error } = await supabase
+        .from('submissions')
+        .update({ status: newStatus })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Atualiza localmente para feedback instantâneo
+      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
+    } catch (err) {
+      alert("Erro ao atualizar status");
+    }
+  };
+
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -63,7 +79,7 @@ const App: React.FC = () => {
   const handleSubmission = async (formData: any) => {
     const supabaseUrl = (supabase as any).supabaseUrl;
     if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
-      alert("ERRO: Chaves do Supabase não configuradas na Vercel.");
+      alert("ERRO: Chaves do Supabase não configuradas.");
       return;
     }
 
@@ -98,12 +114,7 @@ const App: React.FC = () => {
       
       setShowSuccess(true);
     } catch (error: any) {
-      console.error("Erro detalhado:", error);
-      let msg = error.message || "Erro desconhecido";
-      if (msg.includes("column")) {
-        msg = "Faltam colunas no seu banco de dados Supabase. Você precisa adicionar as colunas: name, re, email, phone, is_judicial, status e files na tabela 'submissions'.";
-      }
-      alert(`Erro no Banco: ${msg}`);
+      alert(`Erro: ${error.message || "Erro de conexão"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -111,7 +122,8 @@ const App: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === 'admin' && password === '715115') {
+    // Senha atualizada para ser mais robusta
+    if (username === 'admin' && password === 'CBPM@2026#ADV') {
       setIsAuthenticated(true);
       setShowLogin(false);
       setView(ViewMode.ADMIN);
@@ -131,8 +143,9 @@ const App: React.FC = () => {
             <input type="text" placeholder="Usuário" className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600" value={username} onChange={(e) => setUsername(e.target.value)} required />
             <input type="password" placeholder="Senha" className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">Entrar</button>
-            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm">Voltar</button>
+            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm text-center block mx-auto">Voltar</button>
           </form>
+          <p className="mt-4 text-[10px] text-center text-slate-400 uppercase tracking-widest">Assessoria Jurídica v2.1</p>
         </div>
       </div>
     );
@@ -146,7 +159,7 @@ const App: React.FC = () => {
             <svg xmlns="http://www.w3.org/2000/swap" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
           </div>
           <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Sucesso!</h2>
-          <p className="text-slate-500 mb-8">Seus documentos foram enviados corretamente.</p>
+          <p className="text-slate-500 mb-8">Seus documentos foram enviados corretamente ao Dr. Isaac.</p>
           <button onClick={() => setShowSuccess(false)} className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all">Novo Envio</button>
         </div>
       </div>
@@ -159,8 +172,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center">
           <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-xs w-full">
             <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="font-bold text-slate-800">Enviando Documentos...</p>
-            <p className="text-xs text-slate-400 mt-2">Isso pode levar alguns segundos dependendo do tamanho dos arquivos.</p>
+            <p className="font-bold text-slate-800">Processando envio...</p>
           </div>
         </div>
       )}
@@ -168,7 +180,11 @@ const App: React.FC = () => {
       {view === ViewMode.CLIENT ? (
         <SubmissionForm onSubmit={handleSubmission} onAdminClick={() => isAuthenticated ? setView(ViewMode.ADMIN) : setShowLogin(true)} />
       ) : (
-        <Dashboard submissions={submissions} onBack={() => setView(ViewMode.CLIENT)} />
+        <Dashboard 
+          submissions={submissions} 
+          onBack={() => setView(ViewMode.CLIENT)} 
+          onUpdateStatus={handleUpdateStatus}
+        />
       )}
     </div>
   );
