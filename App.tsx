@@ -51,7 +51,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Função para converter arquivo em Base64
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -62,25 +61,26 @@ const App: React.FC = () => {
   };
 
   const handleSubmission = async (formData: any) => {
+    // Validação de segurança: as chaves existem?
+    const supabaseUrl = (supabase as any).supabaseUrl;
+    if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+      alert("ERRO DE CONFIGURAÇÃO:\nAs chaves do Supabase não foram configuradas na Vercel.\n\n1. Vá no painel da Vercel\n2. Settings -> Environment Variables\n3. Adicione VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const processedFiles = [];
-
       for (const fileObject of formData.files) {
-        // Em vez de fazer upload para o Storage (que dá erro de CORS),
-        // vamos converter o arquivo em uma String Base64.
-        // Isso permite salvar o conteúdo do arquivo diretamente no JSON do banco de dados.
         const base64Data = await fileToBase64(fileObject.file);
-
         processedFiles.push({
           category: fileObject.category,
           name: fileObject.name,
-          url: base64Data, // Agora a URL é o próprio conteúdo do arquivo em texto
+          url: base64Data,
           type: fileObject.file.type
         });
       }
 
-      // Inserção no banco - Usando o esquema público
       const { error: insertError } = await supabase
         .from('submissions')
         .insert([{
@@ -90,21 +90,18 @@ const App: React.FC = () => {
           phone: formData.phone,
           is_judicial: formData.isJudicial,
           status: 'Pendente',
-          files: processedFiles // O JSON agora contém os arquivos em Base64
+          files: processedFiles
         }]);
 
-      if (insertError) {
-        // Se der erro de "Schema not found", é porque o passo 1 (Exposed Schemas) não foi feito
-        if (insertError.message.includes("schema")) {
-          throw new Error("O esquema 'public' não está exposto no seu painel do Supabase. Por favor, adicione 'public' em 'Exposed Schemas' nas configurações de API e clique em Save.");
-        }
-        throw new Error(`Erro no Banco: ${insertError.message}`);
-      }
-
+      if (insertError) throw insertError;
       setShowSuccess(true);
     } catch (error: any) {
-      console.error("Erro na operação:", error);
-      alert(error.message || "Erro desconhecido ao enviar.");
+      console.error("Erro detalhado:", error);
+      if (error.message === "Failed to fetch") {
+        alert("ERRO DE CONEXÃO (Failed to fetch):\n\nIsso geralmente acontece porque:\n1. As chaves na Vercel estão erradas.\n2. Um AdBlock está bloqueando o site.\n3. O esquema 'public' não foi exposto no Supabase (conforme a foto anterior).");
+      } else {
+        alert(`Erro: ${error.message || "Falha na comunicação com o banco de dados."}`);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -160,8 +157,8 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center">
           <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-xs w-full">
             <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="font-bold text-slate-800">Processando Documentos...</p>
-            <p className="text-xs text-slate-400 mt-2">Convertendo arquivos para envio seguro.</p>
+            <p className="font-bold text-slate-800">Enviando Documentos...</p>
+            <p className="text-xs text-slate-400 mt-2">Isso pode levar alguns segundos dependendo do tamanho dos arquivos.</p>
           </div>
         </div>
       )}
