@@ -122,8 +122,8 @@ const App: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Senha atualizada para ser mais robusta
-    if (username === 'admin' && password === 'CBPM@2026#ADV') {
+    // Senha retornada para a versão anterior conforme solicitado
+    if (username === 'admin' && password === '715115') {
       setIsAuthenticated(true);
       setShowLogin(false);
       setView(ViewMode.ADMIN);

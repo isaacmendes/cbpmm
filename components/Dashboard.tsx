@@ -37,6 +37,38 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
     document.body.removeChild(link);
   };
 
+  // Função para baixar arquivos Base64 com segurança convertendo para Blob
+  const handleDownloadFile = (base64Data: string, fileName: string) => {
+    try {
+      // Remove o prefixo data:image/png;base64, se existir
+      const parts = base64Data.split(';base64,');
+      const contentType = parts[0].split(':')[1];
+      const raw = window.atob(parts[1] || parts[0]);
+      const rawLength = raw.length;
+      const uInt8Array = new Uint8Array(rawLength);
+
+      for (let i = 0; i < rawLength; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+      }
+
+      const blob = new Blob([uInt8Array], { type: contentType });
+      const url = window.URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Limpeza
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Erro ao processar download:", err);
+      alert("Erro ao baixar o arquivo. O formato pode estar corrompido.");
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Concluído': return 'bg-emerald-100 text-emerald-700';
@@ -192,17 +224,15 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
                         <span className="font-bold text-slate-700 block text-xs truncate max-w-[150px]">{file.name}</span>
                       </div>
                     </div>
-                    <a 
-                      href={file.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
+                    <button 
+                      onClick={() => handleDownloadFile(file.url, file.name)}
                       className="bg-slate-900 text-white p-2.5 rounded-xl hover:bg-black transition-all"
                       title="Baixar Documento"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                       </svg>
-                    </a>
+                    </button>
                   </div>
                 ))}
               </div>
