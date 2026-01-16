@@ -13,7 +13,7 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack }) => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">Painel de Controle</h1>
+        <h1 className="text-3xl font-bold text-slate-800">Painel de Controle Jurídico</h1>
         <button 
           onClick={onBack}
           className="text-slate-500 hover:text-slate-800 transition-colors"
@@ -74,35 +74,52 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack }) => {
 
       {selectedSubmission && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-4xl max-height-[90vh] overflow-hidden shadow-2xl flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Dossiê: {selectedSubmission.name}</h2>
-              <button onClick={() => setSelectedSubmission(null)} className="p-2 hover:bg-slate-100 rounded-full">✕</button>
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="text-xl font-bold">Dossiê: {selectedSubmission.name}</h2>
+              <button onClick={() => setSelectedSubmission(null)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">✕</button>
             </div>
             <div className="p-8 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Informações de Contato</h3>
-                  <p className="mb-2"><strong>RE:</strong> {selectedSubmission.re}</p>
-                  <p className="mb-2"><strong>Email:</strong> {selectedSubmission.email}</p>
-                  <p className="mb-2"><strong>Telefone:</strong> {selectedSubmission.phone}</p>
+                  <p className="mb-2 text-slate-700"><strong>RE:</strong> {selectedSubmission.re}</p>
+                  <p className="mb-2 text-slate-700"><strong>Email:</strong> {selectedSubmission.email}</p>
+                  <p className="mb-2 text-slate-700"><strong>Telefone:</strong> {selectedSubmission.phone}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Configuração do Processo</h3>
-                  <p className="mb-2"><strong>Modalidade:</strong> {selectedSubmission.isJudicial ? 'Judicial + Administrativo' : 'Apenas Administrativo'}</p>
-                  <p className="mb-2"><strong>Termo de Ciência:</strong> Aceito em {new Date(selectedSubmission.createdAt).toLocaleString('pt-BR')}</p>
+                  <p className="mb-2 text-slate-700"><strong>Modalidade:</strong> {selectedSubmission.isJudicial ? 'Judicial + Administrativo' : 'Apenas Administrativo'}</p>
+                  <p className="mb-2 text-slate-700"><strong>Data de Envio:</strong> {new Date(selectedSubmission.createdAt).toLocaleString('pt-BR')}</p>
                 </div>
               </div>
               
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Documentos Anexados</h3>
-              <div className="space-y-3">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Documentos do Storage (Supabase)</h3>
+              <div className="grid grid-cols-1 gap-3">
                 {selectedSubmission.files.map((file, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div>
-                      <span className="text-xs font-bold text-indigo-500 uppercase block mb-1">{file.category}</span>
-                      <span className="font-medium text-slate-700">{file.name}</span>
+                  <div key={idx} className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                         </svg>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-indigo-500 uppercase block leading-tight">{file.category}</span>
+                        <span className="font-medium text-slate-700 block text-sm">{file.name}</span>
+                      </div>
                     </div>
-                    <a href="#" className="text-indigo-600 hover:underline text-sm font-semibold">Download PDF</a>
+                    <a 
+                      href={file.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Baixar
+                    </a>
                   </div>
                 ))}
               </div>
