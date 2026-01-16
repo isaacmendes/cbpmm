@@ -1,25 +1,16 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const getEnv = (key: string): string => {
-  // Use bracket notation to access properties on import.meta to avoid TS compiler errors if types are missing
-  // or use the standard Vite approach if @types/vite is not available.
-  const meta = import.meta as any;
-  if (meta.env && meta.env[key]) {
-    return meta.env[key];
-  }
-  // Fallback para process.env (Vercel Edge/SSR)
-  if (typeof process !== 'undefined' && process.env && process.env[key]) {
-    return process.env[key] as string;
-  }
-  return '';
-};
+// No Vite/Vercel, as variáveis VITE_ são expostas em import.meta.env
+// Usamos uma abordagem segura para evitar quebra de script
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
-const supabaseUrl = getEnv('VITE_SUPABASE_URL');
-const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY');
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn("Atenção: Variáveis de ambiente do Supabase não encontradas. Verifique o arquivo .env ou as configurações da Vercel.");
+}
 
-// Se as variáveis estiverem vazias, o Supabase jogará erro de 'Invalid URL' ou 'Failed to fetch'
 export const supabase = createClient(
-  supabaseUrl || 'https://chyxrfpcxptdmtbhvmui.supabase.co', 
-  supabaseAnonKey || ''
+  supabaseUrl || 'https://placeholder-url.supabase.co', 
+  supabaseAnonKey || 'placeholder-key'
 );

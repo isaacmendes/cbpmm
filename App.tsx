@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { OfficerSubmission, ViewMode } from './types';
-import SubmissionForm from './components/SubmissionForm';
-import Dashboard from './components/Dashboard';
-import { supabase } from './lib/supabase';
+import { OfficerSubmission, ViewMode } from './types.ts';
+import SubmissionForm from './components/SubmissionForm.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import { supabase } from './lib/supabase.ts';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>(ViewMode.CLIENT);
@@ -56,7 +56,6 @@ const App: React.FC = () => {
     try {
       const uploadedFiles = [];
 
-      // Processamento de arquivos
       for (const fileData of formData.files) {
         let blob;
         try {
@@ -71,7 +70,6 @@ const App: React.FC = () => {
         const folderName = formData.re.replace(/[^0-9]/g, '');
         const filePath = `${folderName}/${fileName}`;
 
-        // Upload para o Bucket 'officer-documents'
         const { error: uploadError } = await supabase.storage
           .from('officer-documents')
           .upload(filePath, blob, {
@@ -96,7 +94,6 @@ const App: React.FC = () => {
         URL.revokeObjectURL(fileData.url);
       }
 
-      // Inserção na tabela 'submissions'
       const { error: insertError } = await supabase
         .from('submissions')
         .insert([{
