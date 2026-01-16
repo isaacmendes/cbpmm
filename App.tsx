@@ -55,30 +55,24 @@ const App: React.FC = () => {
     setIsSubmitting(true);
     try {
       const uploadedFiles = [];
+      const folderName = formData.re.replace(/[^0-9]/g, '');
 
-      for (const fileData of formData.files) {
-        let blob;
-        try {
-          const res = await fetch(fileData.url);
-          blob = await res.blob();
-        } catch (e) {
-          throw new Error(`Não foi possível processar o arquivo: ${fileData.name}`);
-        }
-        
-        const fileExt = fileData.name.split('.').pop();
+      for (const fileObject of formData.files) {
+        const fileExt = fileObject.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const folderName = formData.re.replace(/[^0-9]/g, '');
         const filePath = `${folderName}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
+        // Tentativa de upload direto do objeto File
+        const { error: uploadError, data: uploadData } = await supabase.storage
           .from('officer-documents')
-          .upload(filePath, blob, {
+          .upload(filePath, fileObject.file, {
             cacheControl: '3600',
             upsert: false
           });
 
         if (uploadError) {
-          throw new Error(`Erro no servidor de arquivos (Storage): ${uploadError.message}`);
+          console.error("Erro de Upload:", uploadError);
+          throw new Error(`Erro no Storage: ${uploadError.message}. Verifique o CORS e as permissões do Bucket.`);
         }
 
         const { data: { publicUrl } } = supabase.storage
@@ -86,12 +80,10 @@ const App: React.FC = () => {
           .getPublicUrl(filePath);
 
         uploadedFiles.push({
-          category: fileData.category,
-          name: fileData.name,
+          category: fileObject.category,
+          name: fileObject.name,
           url: publicUrl
         });
-
-        URL.revokeObjectURL(fileData.url);
       }
 
       const { error: insertError } = await supabase
@@ -107,14 +99,20 @@ const App: React.FC = () => {
         }]);
 
       if (insertError) {
-        throw new Error(`Erro no banco de dados (Table): ${insertError.message}`);
+        throw new Error(`Erro no Database: ${insertError.message}`);
       }
 
       setShowSuccess(true);
       if (isAuthenticated) fetchSubmissions();
     } catch (error: any) {
-      console.error("Erro detalhado:", error);
-      alert(error.message || "Ocorreu um erro inesperado. Tente novamente.");
+      console.error("Erro detalhado na submissão:", error);
+      // Alerta mais explicativo para o usuário
+      const msg = error.message || "Erro desconhecido";
+      if (msg.includes("fetch")) {
+        alert("Erro de conexão (CORS). Por favor, configure o CORS nas configurações de API do Supabase para permitir o domínio deste site.");
+      } else {
+        alert(`Falha no envio: ${msg}`);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -135,14 +133,14 @@ const App: React.FC = () => {
 
   if (showLogin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6 animate-fadeIn">
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6">
         <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-2xl">
-          <h2 className="text-2xl font-bold text-center mb-6">Acesso Administrativo</h2>
+          <h2 className="text-2xl font-bold text-center mb-6 text-slate-800">Acesso Administrativo</h2>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input type="text" placeholder="Usuário" className="w-full px-4 py-3 rounded-xl border border-slate-200" value={username} onChange={(e) => setUsername(e.target.value)} required />
-            <input type="password" placeholder="Senha" className="w-full px-4 py-3 rounded-xl border border-slate-200" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">Entrar</button>
-            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm hover:text-slate-600 transition-colors">Voltar</button>
+            <input type="text" placeholder="Usuário" className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            <input type="password" placeholder="Senha" className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">Entrar</button>
+            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm">Voltar</button>
           </form>
         </div>
       </div>
@@ -157,7 +155,7 @@ const App: React.FC = () => {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
           </div>
           <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Sucesso!</h2>
-          <p className="text-slate-500 mb-8">Seus documentos foram enviados. Nossa equipe jurídica entrará em contato em breve.</p>
+          <p className="text-slate-500 mb-8">Seus documentos foram enviados corretamente.</p>
           <button onClick={() => setShowSuccess(false)} className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all">Novo Envio</button>
         </div>
       </div>
@@ -170,8 +168,8 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center">
           <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-xs w-full">
             <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="font-bold text-slate-800">Enviando Documentos...</p>
-            <p className="text-xs text-slate-400 mt-2">Por favor, não feche esta janela até terminar.</p>
+            <p className="font-bold text-slate-800">Enviando Arquivos...</p>
+            <p className="text-xs text-slate-400 mt-2 text-balance">Isso pode levar alguns segundos dependendo da sua conexão.</p>
           </div>
         </div>
       )}

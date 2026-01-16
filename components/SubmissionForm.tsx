@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { OfficerSubmission, FileCategory } from '../types';
+import { OfficerSubmission, FileCategory } from '../types.ts';
 
 interface SubmissionFormProps {
-  onSubmit: (data: Omit<OfficerSubmission, 'id' | 'createdAt' | 'status'>) => void;
+  onSubmit: (data: any) => void;
   onAdminClick: () => void;
 }
 
@@ -18,48 +18,37 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
     agreedToTerms: false,
   });
 
-  const [files, setFiles] = useState<{ category: string; label: string; name: string; url: string }[]>([]);
+  // Agora guardamos o objeto File real para evitar o erro "Failed to fetch"
+  const [files, setFiles] = useState<{ category: string; label: string; name: string; file: File }[]>([]);
 
-  // Função para aplicar máscara no RE (000000-0)
   const handleREChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não é dígito
-    if (value.length > 7) value = value.slice(0, 7); // Limita a 7 dígitos
-    
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 7) value = value.slice(0, 7);
     if (value.length > 6) {
       value = value.replace(/^(\d{6})(\d{1})/, '$1-$2');
     }
-    
     setFormData({ ...formData, re: value });
   };
 
-  // Função para aplicar máscara no Telefone ( (00) 00000-0000 )
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não é dígito
-    if (value.length > 11) value = value.slice(0, 11); // Limita a 11 dígitos (DDD + 9 dígitos)
-
-    if (value.length > 0) {
-      value = '(' + value;
-    }
-    if (value.length > 3) {
-      value = value.replace(/^(\(\d{2})(\d)/, '$1) $2');
-    }
-    if (value.length > 10) {
-      value = value.replace(/(\d{5})(\d{4})$/, '$1-$2');
-    }
-
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length > 0) value = '(' + value;
+    if (value.length > 3) value = value.replace(/^(\(\d{2})(\d)/, '$1) $2');
+    if (value.length > 10) value = value.replace(/(\d{5})(\d{4})$/, '$1-$2');
     setFormData({ ...formData, phone: value });
   };
 
   const handleFileChange = (category: string, label: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+      const selectedFile = e.target.files[0];
       setFiles(prev => [
         ...prev.filter(f => f.label !== label), 
         {
           category,
           label,
-          name: file.name,
-          url: URL.createObjectURL(file)
+          name: selectedFile.name,
+          file: selectedFile // Guardamos o arquivo bruto
         }
       ]);
     }
@@ -77,6 +66,8 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
     if (!formData.agreedToTerms) return alert("Você deve aceitar os termos de ciência.");
     if (formData.re.length < 8) return alert("Por favor, insira um RE válido (6 dígitos + dígito verificador).");
     if (formData.phone.length < 14) return alert("Por favor, insira um telefone válido com DDD.");
+    
+    // Passamos os arquivos brutos para o App.tsx processar
     onSubmit({ ...formData, files });
   };
 
@@ -113,15 +104,10 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
     <div className="max-w-3xl mx-auto px-4 py-12">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">Portal de Desvinculação CBPM</h1>
-        <p className="text-slate-500 text-lg mb-6">Inicie sua solicitação de cessação de descontos compulsórios para 2026.</p>
-        
         <button 
           onClick={onAdminClick} 
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-all text-xs font-bold uppercase tracking-widest border border-slate-200"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
           Área do Advogado
         </button>
       </div>
@@ -139,41 +125,14 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
-        
         {step === 1 && (
           <div className="space-y-6 animate-fadeIn">
             <h2 className="text-2xl font-bold text-slate-800">1. Dados Funcionais</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nome Completo</label>
-                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={inputClasses} placeholder="Ex: João da Silva" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">RE (Registro Estatutário)</label>
-                <input 
-                  required 
-                  value={formData.re} 
-                  onChange={handleREChange} 
-                  className={inputClasses} 
-                  placeholder="123456-7" 
-                  maxLength={8}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">E-mail</label>
-                <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputClasses} placeholder="email@exemplo.com" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Telefone/WhatsApp</label>
-                <input 
-                  required 
-                  value={formData.phone} 
-                  onChange={handlePhoneChange} 
-                  className={inputClasses} 
-                  placeholder="(11) 99999-9999" 
-                  maxLength={15}
-                />
-              </div>
+              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={inputClasses} placeholder="Nome Completo" />
+              <input required value={formData.re} onChange={handleREChange} className={inputClasses} placeholder="RE: 123456-7" maxLength={8} />
+              <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputClasses} placeholder="E-mail" />
+              <input required value={formData.phone} onChange={handlePhoneChange} className={inputClasses} placeholder="Telefone/WhatsApp" maxLength={15} />
             </div>
             <button type="button" onClick={nextStep} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Próximo</button>
           </div>
@@ -182,14 +141,11 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
         {step === 2 && (
           <div className="space-y-6 animate-fadeIn">
             <h2 className="text-2xl font-bold text-slate-800">2. Documentos Comuns</h2>
-            <p className="text-slate-500 text-sm">Necessários para ambas as vias (Administrativa e Judicial).</p>
-            
             <div className="space-y-4">
               {renderFileInput(FileCategory.COMMON, 'Identidade Funcional (RE)', 'Cópia frente e verso legível')}
               {renderFileInput(FileCategory.COMMON, 'Comprovante de Residência', 'Atualizado (últimos 3 meses)')}
               {renderFileInput(FileCategory.COMMON, 'Último Holerite', 'Para comprovar o desconto ativo')}
             </div>
-            
             <div className="flex gap-4">
               <button type="button" onClick={prevStep} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">Voltar</button>
               <button type="button" onClick={nextStep} className="flex-2 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Próximo</button>
@@ -200,31 +156,26 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
         {step === 3 && (
           <div className="space-y-6 animate-fadeIn">
             <h2 className="text-2xl font-bold text-slate-800">3. Definição de Estratégia</h2>
-            
             <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-6">
               <label className="flex items-start gap-4 cursor-pointer">
                 <input type="checkbox" checked={formData.isJudicial} onChange={e => setFormData({...formData, isJudicial: e.target.checked})} className="mt-1 w-5 h-5 accent-indigo-600" />
                 <div>
-                  <p className="font-bold text-indigo-900">Desejo ingressar com Ação Judicial de Repetição do Indébito</p>
-                  <p className="text-sm text-indigo-700 mt-1">Busca a devolução dos valores descontados indevidamente nos últimos 5 anos corrigidos pela Taxa SELIC.</p>
+                  <p className="font-bold text-indigo-900">Ação Judicial de Repetição do Indébito</p>
+                  <p className="text-sm text-indigo-700 mt-1">Busca a devolução dos valores dos últimos 5 anos.</p>
                 </div>
               </label>
             </div>
-
             {formData.isJudicial ? (
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-700 border-l-4 border-indigo-600 pl-3">Documentos para Via Judicial</h3>
-                {renderFileInput(FileCategory.JUDICIAL, 'Holerites dos últimos 5 anos', 'Para memória de cálculo')}
+                {renderFileInput(FileCategory.JUDICIAL, 'Holerites dos últimos 5 anos', 'Arquivo PDF único preferencialmente')}
                 {renderFileInput(FileCategory.JUDICIAL, 'Extrato de Consignações', 'Disponível no Portal SOU.SP')}
                 {renderFileInput(FileCategory.JUDICIAL, 'Declaração de Hipossuficiência', 'Para Justiça Gratuita')}
               </div>
             ) : (
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-700 border-l-4 border-blue-400 pl-3">Apenas Via Administrativa</h3>
-                {renderFileInput(FileCategory.ADMINISTRATIVE, 'Termo de Declaração de Desligamento', 'Petição fundamentada na tese do STF (RE 573.540)')}
+                {renderFileInput(FileCategory.ADMINISTRATIVE, 'Termo de Desligamento', 'Petição administrativa fundamentada')}
               </div>
             )}
-            
             <div className="flex gap-4">
               <button type="button" onClick={prevStep} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">Voltar</button>
               <button type="button" onClick={nextStep} className="flex-2 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Próximo</button>
@@ -235,38 +186,19 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
         {step === 4 && (
           <div className="space-y-8 animate-fadeIn">
             <h2 className="text-2xl font-bold text-slate-800">4. Revisão e Compromisso</h2>
-            
-            <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
-              <h3 className="text-red-800 font-bold mb-2 flex items-center gap-2">
-                ⚠️ AVISO IMPORTANTE
-              </h3>
-              <p className="text-sm text-red-700 leading-relaxed">
-                O cancelamento da contribuição CBPM cessará imediatamente o atendimento médico-hospitalar para o servidor e seus dependentes na rede Cruz Azul e demais convênios vinculados à autarquia.
-              </p>
+            <div className="bg-red-50 p-6 rounded-2xl border border-red-100 text-sm text-red-700">
+              <strong>AVISO:</strong> O cancelamento cessará o atendimento médico para você e dependentes.
             </div>
-
-            <div className="space-y-4 p-6 bg-slate-50 rounded-2xl">
-              <p className="text-sm font-bold text-slate-400 uppercase">Resumo da Solicitação</p>
-              <p className="text-slate-700"><strong>Nome:</strong> {formData.name}</p>
-              <p className="text-slate-700"><strong>RE:</strong> {formData.re}</p>
-              <p className="text-slate-700"><strong>Via:</strong> {formData.isJudicial ? 'Administrativa + Judicial (Retroativo 5 anos)' : 'Apenas Administrativa (Cessação Futura)'}</p>
-              <p className="text-slate-700"><strong>Total de Documentos:</strong> {files.length} arquivos anexados</p>
-            </div>
-
             <label className="flex items-start gap-4 cursor-pointer p-4 rounded-xl border border-slate-200 bg-white">
               <input required type="checkbox" checked={formData.agreedToTerms} onChange={e => setFormData({...formData, agreedToTerms: e.target.checked})} className="mt-1 w-5 h-5 accent-indigo-600" />
-              <p className="text-sm text-slate-700 font-medium">
-                Estou ciente de que o cancelamento acarretará na perda do benefício de saúde para mim e meus dependentes. Confirmo que as informações prestadas são verídicas.
-              </p>
+              <p className="text-sm text-slate-700">Confirmo as informações e aceito a perda do benefício de saúde.</p>
             </label>
-
             <div className="flex gap-4">
               <button type="button" onClick={prevStep} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">Voltar</button>
               <button type="submit" className="flex-2 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Finalizar Solicitação</button>
             </div>
           </div>
         )}
-
       </form>
     </div>
   );
