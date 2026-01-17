@@ -33,7 +33,7 @@ const App: React.FC = () => {
       
       if (data) {
         const mapped = data.map(sub => ({
-          id: String(sub.id), // Mantemos como string no front para consistência
+          id: String(sub.id),
           name: sub.name || 'Sem nome',
           re: sub.re || '---',
           email: sub.email || '',
@@ -52,27 +52,39 @@ const App: React.FC = () => {
   };
 
   const handleUpdateStatus = async (id: string, newStatus: OfficerSubmission['status']) => {
-    try {
-      // 1. Persistir no Banco de Dados (Supabase)
-      // Convertendo id para Number caso o banco use integer primary key
-      const dbId = isNaN(Number(id)) ? id : Number(id);
+    // 1. Atualização Otimista: Muda na tela antes de ir pro banco para ser rápido
+    const originalSubmissions = [...submissions];
+    setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
 
-      const { error } = await supabase
+    try {
+      // 2. Tenta gravar no Supabase
+      // Importante: Verifique se o nome da coluna no seu banco é exatamente 'status'
+      const { error, data } = await supabase
         .from('submissions')
         .update({ status: newStatus })
-        .eq('id', dbId);
+        .eq('id', id)
+        .select(); // Pedimos o select de volta para confirmar que houve alteração
       
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
+      // Se o data vier vazio, significa que o filtro .eq('id', id) não encontrou ninguém
+      if (!data || data.length === 0) {
+        console.warn("Nenhum registro foi atualizado. Verifique se o ID existe no banco.");
+      } else {
+        console.log("Sucesso: Status gravado no banco de dados.", data);
+      }
+
+    } catch (err: any) {
+      console.error("Erro Supabase:", err);
+      // REVERTE se der erro para não enganar o usuário
+      setSubmissions(originalSubmissions);
       
-      // 2. Só atualiza o estado local APÓS o sucesso no banco
-      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
+      let msg = "Erro ao gravar no banco.";
+      if (err.code === '42501') msg = "Erro de Permissão (RLS): O banco não permite alterações via API. Verifique as políticas do Supabase.";
       
-      console.log(`[Persistência OK] ID ${id} atualizado para ${newStatus}`);
-    } catch (err) {
-      console.error("Erro ao persistir status no banco:", err);
-      alert("Falha crítica ao salvar no banco. Verifique sua conexão ou permissões.");
-      // Recarrega para garantir que a UI mostre o que realmente está no banco
-      fetchSubmissions();
+      alert(msg);
     }
   };
 
