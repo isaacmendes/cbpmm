@@ -1,5 +1,7 @@
 {
   "name": "CBPM Cessation Portal 2026",
   "description": "A professional and minimalist platform for Military Police officers to submit documentation for the cessation of CBPM mandatory discounts and request reimbursement.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }
