@@ -53,6 +53,7 @@ const App: React.FC = () => {
 
   const handleUpdateStatus = async (id: string, newStatus: OfficerSubmission['status']) => {
     try {
+      // Atualiza no Banco de Dados (Supabase)
       const { error } = await supabase
         .from('submissions')
         .update({ status: newStatus })
@@ -60,10 +61,15 @@ const App: React.FC = () => {
       
       if (error) throw error;
       
-      // Atualiza localmente para feedback instantâneo
+      // Atualiza o estado local para garantir que a interface reflita a mudança imediatamente
       setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
+      
+      console.log(`Status do registro ${id} alterado para ${newStatus} com sucesso no banco.`);
     } catch (err) {
-      alert("Erro ao atualizar status");
+      console.error("Erro ao persistir status no banco:", err);
+      alert("Erro ao gravar alteração no banco de dados.");
+      // Recarrega os dados para reverter a alteração visual se o banco falhar
+      fetchSubmissions();
     }
   };
 
@@ -122,7 +128,6 @@ const App: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Senha retornada para a versão anterior conforme solicitado
     if (username === 'admin' && password === '715115') {
       setIsAuthenticated(true);
       setShowLogin(false);
@@ -156,7 +161,7 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 animate-fadeIn">
         <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl text-center">
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg xmlns="http://www.w3.org/2000/swap" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
           </div>
           <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Sucesso!</h2>
           <p className="text-slate-500 mb-8">Seus documentos foram enviados corretamente ao Dr. Isaac.</p>
