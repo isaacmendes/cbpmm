@@ -14,7 +14,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
     re: '',
     email: '',
     phone: '',
-    isJudicial: true, // Mantido como true internamente para o payload do banco
+    isJudicial: true,
     agreedToTerms: false,
   });
 
@@ -62,7 +62,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.agreedToTerms) return alert("Você deve aceitar os termos de ciência.");
+    if (!formData.agreedToTerms) return alert("Você deve aceitar os termos de ciência e concordância.");
     if (formData.re.length < 8) return alert("Por favor, insira um RE válido (6 dígitos + dígito verificador).");
     if (formData.phone.length < 14) return alert("Por favor, insira um telefone válido com DDD.");
     
@@ -110,7 +110,6 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
         </button>
       </div>
 
-      {/* Stepper ajustado para 3 passos */}
       <div className="mb-12 flex justify-between items-center relative max-w-sm mx-auto">
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex flex-col items-center z-10">
@@ -154,17 +153,54 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
 
         {step === 3 && (
           <div className="space-y-8 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-slate-800">3. Revisão e Compromisso</h2>
-            <div className="bg-red-50 p-6 rounded-2xl border border-red-100 text-sm text-red-700">
-              <strong>AVISO:</strong> O cancelamento cessará o atendimento médico para você e dependentes. Esta ação solicita a cessação e o ressarcimento dos valores.
+            <div>
+              <h2 className="text-2xl font-bold text-slate-800">3. Revisão, Compromisso e Honorários</h2>
+              <p className="text-slate-500 text-sm mt-1">Leia atentamente antes de finalizar.</p>
             </div>
-            <label className="flex items-start gap-4 cursor-pointer p-4 rounded-xl border border-slate-200 bg-white">
-              <input required type="checkbox" checked={formData.agreedToTerms} onChange={e => setFormData({...formData, agreedToTerms: e.target.checked})} className="mt-1 w-5 h-5 accent-indigo-600" />
-              <p className="text-sm text-slate-700">Confirmo as informações e aceito a perda do benefício de saúde para fins de interrupção do desconto em folha.</p>
-            </label>
-            <div className="flex gap-4">
-              <button type="button" onClick={prevStep} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">Voltar</button>
-              <button type="submit" className="flex-2 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Finalizar Solicitação</button>
+
+            <div className="bg-amber-50 p-5 rounded-2xl border border-amber-100">
+              <h3 className="text-amber-800 font-bold text-sm uppercase flex items-center gap-2 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                ATENÇÃO
+              </h3>
+              <p className="text-sm text-amber-900 leading-relaxed">
+                A confirmação desta solicitação resultará na desvinculação do CBPM e na cessação do desconto em folha referente ao benefício de saúde, para você e seus dependentes. 
+                <span className="font-bold"> A interrupção do desconto normalmente ocorre no mês subsequente ao protocolo do pedido.</span>
+              </p>
+            </div>
+
+            <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100">
+              <h3 className="text-indigo-800 font-bold text-sm uppercase mb-2">Honorários da Ação Judicial</h3>
+              <p className="text-sm text-indigo-900 leading-relaxed">
+                O valor dos honorários advocatícios para o ajuizamento e acompanhamento da ação judicial é de <span className="font-bold text-indigo-600 text-lg">R$ 200,00 (duzentos reais)</span>.
+              </p>
+              <p className="text-xs text-indigo-700 mt-2 italic bg-white/50 p-2 rounded-lg">
+                A cobrança será realizada <span className="font-bold underline">somente após a efetiva cessação do desconto no holerite</span>, por meio de mensagem enviada ao WhatsApp informado no cadastro, contendo as orientações para pagamento.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Declaração de Ciência e Concordância</h3>
+              <label className="flex items-start gap-4 cursor-pointer p-5 rounded-2xl border-2 border-slate-100 bg-white hover:border-indigo-500 transition-all group">
+                <input required type="checkbox" checked={formData.agreedToTerms} onChange={e => setFormData({...formData, agreedToTerms: e.target.checked})} className="mt-1 w-5 h-5 accent-indigo-600 rounded" />
+                <p className="text-sm text-slate-700 leading-relaxed group-hover:text-slate-900">
+                  Declaro que revisei todas as informações prestadas, estou ciente da perda do benefício do CBPM e concordo com a cobrança dos honorários advocatícios no valor informado, após a cessação do desconto em folha.
+                </p>
+              </label>
+            </div>
+
+            <div className="text-center">
+              <p className="text-xs text-slate-400 mb-6 px-4 leading-relaxed">
+                <span className="font-bold text-slate-600 block mb-1">Assistência Jurídica Militar</span>
+                Caso necessite de assessoria jurídica militar especializada para outros assuntos, entre em contato pelos canais oficiais.
+              </p>
+              
+              <div className="flex gap-4">
+                <button type="button" onClick={prevStep} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">Voltar</button>
+                <button type="submit" className="flex-2 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Finalizar</button>
+              </div>
             </div>
           </div>
         )}
