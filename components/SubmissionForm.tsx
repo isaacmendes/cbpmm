@@ -154,12 +154,16 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
               <p className="text-slate-400 text-xs">Informe seus dados básicos para início do processo.</p>
             </div>
             <div className="space-y-4">
-              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-slate-200 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-300" placeholder="Nome Completo" />
-              <input required value={formData.re} onChange={handleREChange} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-slate-200 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-300" placeholder="RE Militar" />
-              <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-slate-200 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-300" placeholder="E-mail" />
-              <input required value={formData.phone} onChange={handlePhoneChange} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-slate-200 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-300" placeholder="WhatsApp" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-slate-200 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-300" placeholder="Nome Completo" />
+                <input required value={formData.re} onChange={handleREChange} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-slate-200 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-300" placeholder="RE Militar" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-slate-200 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-300" placeholder="E-mail" />
+                <input required value={formData.phone} onChange={handlePhoneChange} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-slate-200 outline-none transition-all font-medium text-slate-700 placeholder:text-slate-300" placeholder="WhatsApp" />
+              </div>
             </div>
-            <button type="button" onClick={() => step < 3 && setStep(2)} className="w-full py-5 bg-slate-800 text-white rounded-[2rem] font-bold text-sm tracking-wide hover:bg-slate-900 transition-all shadow-lg shadow-slate-200">Próximo Passo</button>
+            <button type="button" onClick={() => step < 3 && setStep(2)} className="w-full py-5 bg-slate-800 text-white rounded-[2rem] font-bold text-sm tracking-wide hover:bg-slate-900 transition-all shadow-lg shadow-slate-200 mt-4">Próximo Passo</button>
           </div>
         )}
 
