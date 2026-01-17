@@ -43,61 +43,57 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
   const handleFileChange = (category: string, label: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
+      if (selectedFile.size > 15 * 1024 * 1024) {
+        alert("Arquivo muito pesado. O limite é 15MB.");
+        return;
+      }
       setFiles(prev => [
         ...prev.filter(f => f.label !== label), 
-        {
-          category,
-          label,
-          name: selectedFile.name,
-          file: selectedFile 
-        }
+        { category, label, name: selectedFile.name, file: selectedFile }
       ]);
     }
   };
 
-  const getFileForLabel = (label: string) => {
-    return files.find(f => f.label === label);
-  };
-
-  const validateStep1 = () => {
-    if (!formData.name || !formData.re || !formData.email || !formData.phone) {
-      alert("Por favor, preencha todos os campos obrigatórios.");
-      return false;
-    }
-    return true;
-  };
-
-  const validateStep2 = () => {
-    const requiredLabels = [
-      'Identidade Funcional (RE)',
-      'Carteira de Habilitação - CNH',
-      'Último Holerite'
-    ];
-    const missingFiles = requiredLabels.filter(label => !getFileForLabel(label));
-    return missingFiles.length === 0;
-  };
+  const getFileForLabel = (label: string) => files.find(f => f.label === label);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateStep1() || !validateStep2() || !formData.agreedToTerms) {
-      alert("Verifique os campos obrigatórios e a concordância com os termos.");
+    if (!formData.name || !formData.re || !formData.agreedToTerms) {
+      alert("Preencha Nome, RE e aceite os termos.");
+      return;
+    }
+
+    if (files.length < 3) {
+      alert("Por favor, anexe todos os 3 documentos obrigatórios.");
       return;
     }
 
     setIsUploading(true);
     try {
       const uploadedFilesMetadata = [];
+      const cleanRE = formData.re.replace(/\D/g, '');
 
       for (const item of files) {
         const fileExt = item.name.split('.').pop();
-        const fileName = `${formData.re}_${Date.now()}_${item.label.replace(/\s+/g, '_')}.${fileExt}`;
-        const filePath = `submissions/${fileName}`;
+        const timestamp = Date.now();
+        // Sanitização profunda do nome para o Storage
+        const safeLabel = item.label.toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]/g, '_');
+        
+        const filePath = `${cleanRE}/${timestamp}_${safeLabel}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('documents')
-          .upload(filePath, item.file);
+          .upload(filePath, item.file, {
+            contentType: item.file.type,
+            upsert: true
+          });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw new Error(`Erro no arquivo ${item.label}: ${uploadError.message}`);
+        }
 
         const { data: urlData } = supabase.storage
           .from('documents')
@@ -111,28 +107,25 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
       }
 
       onSubmit({ ...formData, files: uploadedFilesMetadata });
-    } catch (error) {
-      console.error('Erro no upload:', error);
-      alert('Falha ao enviar arquivos. Verifique se o bucket "documents" existe no Supabase e tem permissões públicas.');
+    } catch (error: any) {
+      alert(`Erro no protocolo: ${error.message}`);
     } finally {
       setIsUploading(false);
     }
   };
 
-  const inputClasses = "w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white text-slate-900 font-medium";
-
   const renderFileInput = (category: string, label: string, hint: string) => {
     const selectedFile = getFileForLabel(label);
     return (
-      <div className={`p-4 border border-dashed rounded-xl transition-all ${selectedFile ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-300'}`}>
+      <div className={`p-4 border-2 border-dashed rounded-2xl transition-all ${selectedFile ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/50'}`}>
         <div className="flex justify-between items-center gap-4">
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-slate-700">{label} *</p>
-            <p className="text-xs text-slate-400 truncate">{selectedFile ? selectedFile.name : hint}</p>
+            <p className="font-bold text-slate-800 text-sm">{label} *</p>
+            <p className="text-[10px] text-slate-500 truncate">{selectedFile ? selectedFile.name : hint}</p>
           </div>
-          <label className="cursor-pointer px-4 py-2 rounded-lg border text-sm font-bold bg-white text-indigo-600 hover:bg-indigo-50 transition-all shrink-0">
-            {selectedFile ? 'Alterar' : 'Selecionar'}
-            <input type="file" className="hidden" onChange={(e) => handleFileChange(category, label, e)} />
+          <label className="cursor-pointer px-4 py-2 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider bg-white text-indigo-600 hover:border-indigo-600 transition-all shrink-0">
+            {selectedFile ? 'Trocar' : 'Anexar'}
+            <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileChange(category, label, e)} />
           </label>
         </div>
       </div>
@@ -140,62 +133,66 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-extrabold text-slate-900 mb-4">Portal CBPM 2026</h1>
-        <button onClick={onAdminClick} className="px-4 py-2 rounded-full bg-slate-100 text-slate-500 text-xs font-bold uppercase tracking-widest border border-slate-200">Área do Advogado</button>
+    <div className="max-w-2xl mx-auto px-4 py-12">
+      <div className="text-center mb-10">
+        <h1 className="text-4xl font-black text-slate-900 mb-2 tracking-tighter">Portal CBPM 2026</h1>
+        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-6">Assessoria para Oficiais PM</p>
+        <button onClick={onAdminClick} className="px-6 py-2 rounded-full bg-slate-200/50 text-slate-600 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-200 transition-all">Acesso Restrito</button>
       </div>
 
-      <div className="mb-12 flex justify-between items-center relative max-w-sm mx-auto">
+      <div className="mb-10 flex justify-between items-center relative max-w-[280px] mx-auto">
         {[1, 2, 3].map((i) => (
-          <div key={i} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold z-10 ${step >= i ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-400'}`}>{i}</div>
+          <div key={i} className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black z-10 transition-all ${step >= i ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200' : 'bg-white border-2 border-slate-100 text-slate-300'}`}>{i}</div>
         ))}
-        <div className="absolute top-5 left-0 w-full h-0.5 bg-slate-200 -z-0"></div>
+        <div className="absolute top-6 left-0 w-full h-1 bg-slate-100 -z-0"></div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
+      <form onSubmit={handleSubmit} className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-100">
         {step === 1 && (
           <div className="space-y-6 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-slate-800">1. Dados Funcionais</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={inputClasses} placeholder="Nome Completo *" />
-              <input required value={formData.re} onChange={handleREChange} className={inputClasses} placeholder="RE: 123456-7 *" />
-              <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputClasses} placeholder="E-mail *" />
-              <input required value={formData.phone} onChange={handlePhoneChange} className={inputClasses} placeholder="WhatsApp *" />
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Identificação</h2>
+            <div className="grid grid-cols-1 gap-4">
+              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 focus:border-indigo-600 outline-none transition-all font-medium" placeholder="Nome Completo" />
+              <input required value={formData.re} onChange={handleREChange} className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 focus:border-indigo-600 outline-none transition-all font-medium" placeholder="RE Militar" />
+              <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 focus:border-indigo-600 outline-none transition-all font-medium" placeholder="E-mail" />
+              <input required value={formData.phone} onChange={handlePhoneChange} className="w-full px-6 py-4 rounded-2xl border-2 border-slate-50 focus:border-indigo-600 outline-none transition-all font-medium" placeholder="WhatsApp" />
             </div>
-            <button type="button" onClick={() => validateStep1() && setStep(2)} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold">Próximo</button>
+            <button type="button" onClick={() => step < 3 && setStep(2)} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">Continuar</button>
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-6 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-slate-800">2. Documentos</h2>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Documentação</h2>
             <div className="space-y-4">
-              {renderFileInput(FileCategory.COMMON, 'Identidade Funcional (RE)', 'Foto legível')}
-              {renderFileInput(FileCategory.COMMON, 'Carteira de Habilitação - CNH', 'PDF ou Foto')}
-              {renderFileInput(FileCategory.COMMON, 'Último Holerite', 'PDF ou Foto')}
+              {renderFileInput(FileCategory.COMMON, 'Identidade Funcional (RE)', 'Frente e verso nítidos')}
+              {renderFileInput(FileCategory.COMMON, 'Carteira de Habilitação - CNH', 'Pode ser o print da CNH Digital')}
+              {renderFileInput(FileCategory.COMMON, 'Último Holerite', 'Disponível no Portal do Militar')}
             </div>
             <div className="flex gap-4">
-              <button type="button" onClick={() => setStep(1)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-bold">Voltar</button>
-              <button type="button" onClick={() => validateStep2() ? setStep(3) : alert('Anexe todos os documentos.')} className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-bold">Próximo</button>
+              <button type="button" onClick={() => setStep(1)} className="flex-1 py-5 bg-slate-50 text-slate-500 rounded-2xl font-bold hover:bg-slate-100 transition-all">Voltar</button>
+              <button type="button" onClick={() => setStep(3)} className="flex-1 py-5 bg-indigo-600 text-white rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">Próximo</button>
             </div>
           </div>
         )}
 
         {step === 3 && (
           <div className="space-y-6 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-slate-800">3. Finalização</h2>
-            <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-sm text-amber-900 leading-relaxed">
-              <strong>ATENÇÃO:</strong> A confirmação resultará na cessação do desconto CBPM. Os honorários são de <strong>R$ 200,00</strong> pagos após a cessação.
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Assinatura Digital</h2>
+            <div className="bg-indigo-50 p-6 rounded-[2rem] border-2 border-indigo-100 text-xs text-indigo-900 leading-relaxed font-medium">
+              <p className="font-black text-sm mb-3 text-indigo-700">TERMOS JURÍDICOS:</p>
+              <p className="mb-2">• Ao prosseguir, você solicita a cessação definitiva do desconto CBPM.</p>
+              <p className="mb-2">• <strong>Honorários:</strong> Valor de R$ 200,00 pago uma única vez via PIX.</p>
+              <p>• O boleto/chave PIX será enviado somente após a confirmação da parada do desconto em seu holerite.</p>
             </div>
-            <label className="flex items-start gap-3 cursor-pointer p-4 border rounded-xl hover:bg-slate-50 transition-all">
-              <input required type="checkbox" checked={formData.agreedToTerms} onChange={e => setFormData({...formData, agreedToTerms: e.target.checked})} className="mt-1 w-5 h-5 accent-indigo-600" />
-              <span className="text-sm text-slate-700">Declaro ciência da perda do benefício e concordo com os honorários advocatícios após a cessação. *</span>
+            <label className="flex items-start gap-4 cursor-pointer p-6 border-2 border-slate-100 rounded-3xl hover:border-indigo-600 transition-all">
+              <input required type="checkbox" checked={formData.agreedToTerms} onChange={e => setFormData({...formData, agreedToTerms: e.target.checked})} className="mt-1 w-6 h-6 accent-indigo-600 rounded-lg" />
+              <span className="text-xs text-slate-600 font-bold leading-tight">Declaro estar ciente de que perderei a assistência médica da CBPM e concordo com os honorários advocatícios descritos acima. *</span>
             </label>
             <div className="flex gap-4">
-              <button type="button" onClick={() => setStep(2)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-bold">Voltar</button>
-              <button type="submit" disabled={isUploading} className={`flex-1 py-4 rounded-xl font-bold text-white shadow-lg ${isUploading ? 'bg-slate-400 cursor-wait' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-                {isUploading ? 'Enviando...' : 'Finalizar'}
+              <button type="button" onClick={() => setStep(2)} className="flex-1 py-5 bg-slate-50 text-slate-500 rounded-2xl font-bold">Voltar</button>
+              <button type="submit" disabled={isUploading} className={`flex-1 py-5 rounded-2xl font-black text-white shadow-xl transition-all ${isUploading ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100'}`}>
+                {isUploading ? 'Protocolando...' : 'Finalizar Pedido'}
               </button>
             </div>
           </div>
