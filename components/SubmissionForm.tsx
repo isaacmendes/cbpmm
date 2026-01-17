@@ -143,7 +143,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
             <h2 className="text-2xl font-bold text-slate-800">2. Documentos Comuns</h2>
             <div className="space-y-4">
               {renderFileInput(FileCategory.COMMON, 'Identidade Funcional (RE)', 'Cópia frente e verso legível')}
-              {renderFileInput(FileCategory.COMMON, 'Comprovante de Residência', 'Atualizado (últimos 3 meses)')}
+              {renderFileInput(FileCategory.COMMON, 'Carteira de Habilitação - CNH', 'Exportar em PDF do Aplicativo CNH do Brasil')}
               {renderFileInput(FileCategory.COMMON, 'Último Holerite', 'Para comprovar o desconto ativo')}
             </div>
             <div className="flex gap-4">
