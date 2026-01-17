@@ -18,6 +18,7 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
 
   useEffect(() => {
     if (isSuperAdmin && activeTab === 'advogados') {
@@ -44,6 +45,32 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
       } else {
         fetchAdvogados();
       }
+    }
+  };
+
+  const handleFileDownload = async (url: string, fileName: string) => {
+    try {
+      setDownloadingFile(fileName);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Falha ao baixar arquivo');
+      
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Erro no download:', error);
+      alert('Não foi possível baixar o arquivo diretamente. Tente clicar com o botão direito e "Salvar como".');
+      // Fallback: abre em nova aba
+      window.open(url, '_blank');
+    } finally {
+      setDownloadingFile(null);
     }
   };
 
@@ -229,9 +256,19 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
                       <p className="text-[10px] uppercase font-black text-indigo-400 leading-none mb-1">{f.category}</p>
                       <p className="text-xs font-bold text-slate-700 truncate">{f.name}</p>
                     </div>
-                    <a href={f.url} download={f.name} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    </a>
+                    <button 
+                      disabled={downloadingFile === f.name}
+                      onClick={() => handleFileDownload(f.url, f.name)} 
+                      className={`bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 flex items-center justify-center min-w-[36px] min-h-[36px] ${downloadingFile === f.name ? 'opacity-50 cursor-wait' : ''}`}
+                    >
+                      {downloadingFile === f.name ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 ))}
               </div>
