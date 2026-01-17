@@ -57,9 +57,11 @@ const App: React.FC = () => {
 
   const maskPhone = (v: string) => {
     v = v.replace(/\D/g, "");
-    if (v.length > 2) v = v.substring(0, 2) + " " + v.substring(2);
-    if (v.length > 8) v = v.substring(0, 8) + "-" + v.substring(8, 12);
-    return v.substring(0, 15);
+    if (v.length > 11) v = v.slice(0, 11);
+    if (v.length > 0) v = '(' + v;
+    if (v.length > 3) v = v.replace(/^(\(\d{2})(\d)/, '$1) $2');
+    if (v.length > 10) v = v.replace(/(\d{5})(\d{4})$/, '$1-$2');
+    return v;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -115,6 +117,11 @@ const App: React.FC = () => {
       if (error) throw error;
       alert('Cadastro realizado! Aguarde a aprovação.');
       setIsRegistering(false);
+      // Limpar campos
+      setRegOAB('');
+      setRegNome('');
+      setRegTel('');
+      setRegSenha('');
     } catch (err) {
       alert('Erro ao cadastrar.');
     }
@@ -156,7 +163,6 @@ const App: React.FC = () => {
         <SubmissionForm onSubmit={async (submissionData) => {
           setIsSubmitting(true);
           try {
-            // O submissionData já contém as URLs geradas pelo upload no componente SubmissionForm
             const { error } = await supabase.from('submissions').insert([{
               name: submissionData.name, 
               re: submissionData.re, 
@@ -164,7 +170,7 @@ const App: React.FC = () => {
               phone: submissionData.phone, 
               is_judicial: submissionData.isJudicial, 
               status: 'Pendente', 
-              files: submissionData.files // Salva a lista de {category, name, url}
+              files: submissionData.files 
             }]);
             
             if (error) throw error;
@@ -194,26 +200,31 @@ const App: React.FC = () => {
       )}
 
       {showLogin && (
-        <div className="fixed inset-0 bg-white z-[120] flex items-center justify-center p-6">
-          <div className="max-w-md w-full animate-fadeIn">
+        <div className="fixed inset-0 bg-white z-[120] flex items-center justify-center p-6 overflow-y-auto">
+          <div className="max-w-md w-full animate-fadeIn py-12">
              <h2 className="text-3xl font-black mb-8 text-center">{isRegistering ? 'Cadastro' : 'Login'}</h2>
              {!isRegistering ? (
                <form onSubmit={handleLogin} className="space-y-4">
-                 <input type="text" placeholder="OAB" className="w-full p-4 rounded-xl border" value={username} onChange={e => setUsername(maskOAB(e.target.value))} required />
-                 <input type="password" placeholder="Senha" className="w-full p-4 rounded-xl border" value={password} onChange={e => setPassword(e.target.value)} required />
-                 <button className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold">Entrar</button>
-                 <div className="flex justify-between text-xs font-bold text-slate-400">
+                 <input type="text" placeholder="OAB" className="w-full p-4 rounded-xl border border-slate-100 bg-slate-50/50 outline-none focus:border-slate-200" value={username} onChange={e => setUsername(maskOAB(e.target.value))} required />
+                 <input type="password" placeholder="Senha" className="w-full p-4 rounded-xl border border-slate-100 bg-slate-50/50 outline-none focus:border-slate-200" value={password} onChange={e => setPassword(e.target.value)} required />
+                 <button className="w-full py-4 bg-[#1e293b] text-white rounded-xl font-bold mt-4 shadow-lg shadow-slate-200">Entrar</button>
+                 <div className="flex justify-between text-xs font-bold text-slate-400 mt-6">
                     <button type="button" onClick={() => setShowLogin(false)}>Voltar</button>
                     <button type="button" onClick={() => setIsRegistering(true)} className="text-indigo-600">Criar Conta</button>
                  </div>
                </form>
              ) : (
                <form onSubmit={handleRegister} className="space-y-4">
-                 <input type="text" placeholder="OAB" className="w-full p-4 rounded-xl border" value={regOAB} onChange={e => setRegOAB(maskOAB(e.target.value))} required />
-                 <input type="text" placeholder="Nome" className="w-full p-4 rounded-xl border" value={regNome} onChange={e => setRegNome(e.target.value)} required />
-                 <input type="password" placeholder="Senha" className="w-full p-4 rounded-xl border" value={regSenha} onChange={e => setRegSenha(e.target.value)} required />
-                 <button className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold">Solicitar</button>
-                 <button type="button" onClick={() => setIsRegistering(false)} className="w-full text-slate-400 text-xs">Voltar</button>
+                 <div className="grid grid-cols-1 gap-4">
+                    <input type="text" placeholder="OAB" className="w-full p-4 rounded-xl border border-slate-100 bg-slate-50/50 outline-none focus:border-slate-200" value={regOAB} onChange={e => setRegOAB(maskOAB(e.target.value))} required />
+                    <input type="text" placeholder="Nome" className="w-full p-4 rounded-xl border border-slate-100 bg-slate-50/50 outline-none focus:border-slate-200" value={regNome} onChange={e => setRegNome(e.target.value)} required />
+                 </div>
+                 <div className="grid grid-cols-1 gap-4">
+                    <input type="password" placeholder="Senha" className="w-full p-4 rounded-xl border border-slate-100 bg-slate-50/50 outline-none focus:border-slate-200" value={regSenha} onChange={e => setRegSenha(e.target.value)} required />
+                    <input type="text" placeholder="WhatsApp" className="w-full p-4 rounded-xl border border-slate-100 bg-slate-50/50 outline-none focus:border-slate-200" value={regTel} onChange={e => setRegTel(maskPhone(e.target.value))} required />
+                 </div>
+                 <button className="w-full py-4 bg-[#059669] text-white rounded-xl font-bold mt-4 shadow-lg shadow-emerald-100">Solicitar</button>
+                 <button type="button" onClick={() => setIsRegistering(false)} className="w-full text-slate-400 text-xs mt-4 hover:text-slate-600">Voltar</button>
                </form>
              )}
           </div>
