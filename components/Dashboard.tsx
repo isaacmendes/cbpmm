@@ -11,6 +11,7 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStatus }) => {
   const [selectedSubmission, setSelectedSubmission] = useState<OfficerSubmission | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   
   // Estados para Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +33,16 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
       return matchesSearch && matchesStatus;
     });
   }, [submissions, searchTerm, statusFilter]);
+
+  const handleStatusChange = async (id: string, newStatus: any) => {
+    setUpdatingId(id);
+    try {
+      await onUpdateStatus(id, newStatus);
+      showNotification("Status atualizado com sucesso!");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const exportToCSV = () => {
     const headers = ["ID", "Nome", "RE", "Email", "Telefone", "Status", "Tipo", "Data"];
@@ -57,7 +68,7 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showNotification("Relatório exportado com sucesso!");
+    showNotification("Relatório exportado!");
   };
 
   const handleDownloadFile = (base64Data: string, fileName: string) => {
@@ -83,7 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
       
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      showNotification(`Arquivo "${fileName}" baixado com sucesso!`);
+      showNotification(`Download iniciado: ${fileName}`);
     } catch (err) {
       console.error("Erro ao processar download:", err);
       alert("Erro ao baixar o arquivo.");
@@ -105,12 +116,12 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
       {notification && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-fadeIn">
           <div className="bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10">
-            <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+            <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
             </div>
-            <span className="text-sm font-bold">{notification}</span>
+            <span className="text-xs font-bold">{notification}</span>
           </div>
         </div>
       )}
@@ -139,7 +150,6 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
         </div>
       </div>
 
-      {/* Barra de Filtros */}
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative group">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
@@ -156,13 +166,13 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
           />
         </div>
         <div className="sm:w-64 flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">Status:</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">Filtrar Status:</span>
           <select 
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700"
           >
-            <option value="Todos">Todos os Status</option>
+            <option value="Todos">Todos</option>
             <option value="Pendente">Pendente</option>
             <option value="Em Análise">Em Análise</option>
             <option value="Ação Protocolada">Ação Protocolada</option>
@@ -187,14 +197,7 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
             <tbody className="divide-y divide-slate-100">
               {filteredSubmissions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
-                    <div className="flex flex-col items-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Nenhum resultado encontrado para os filtros aplicados.
-                    </div>
-                  </td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">Nenhum resultado encontrado.</td>
                 </tr>
               ) : (
                 filteredSubmissions.map((sub) => (
@@ -214,24 +217,30 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <select 
-                        value={sub.status}
-                        onChange={(e) => onUpdateStatus(sub.id, e.target.value as any)}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-full border-none outline-none ring-0 ${getStatusColor(sub.status)}`}
-                      >
-                        <option value="Pendente">Pendente</option>
-                        <option value="Em Análise">Em Análise</option>
-                        <option value="Ação Protocolada">Ação Protocolada</option>
-                        <option value="Aguardando Liminar">Aguardando Liminar</option>
-                        <option value="Concluído">Concluído</option>
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <select 
+                          disabled={updatingId === sub.id}
+                          value={sub.status}
+                          onChange={(e) => handleStatusChange(sub.id, e.target.value)}
+                          className={`text-xs font-bold px-3 py-1.5 rounded-full border-none outline-none ring-0 cursor-pointer transition-all ${updatingId === sub.id ? 'opacity-50' : ''} ${getStatusColor(sub.status)}`}
+                        >
+                          <option value="Pendente">Pendente</option>
+                          <option value="Em Análise">Em Análise</option>
+                          <option value="Ação Protocolada">Ação Protocolada</option>
+                          <option value="Aguardando Liminar">Aguardando Liminar</option>
+                          <option value="Concluído">Concluído</option>
+                        </select>
+                        {updatingId === sub.id && (
+                          <div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <button 
                         onClick={() => setSelectedSubmission(sub)}
                         className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-all"
                       >
-                        Dossiê Completo
+                        Dossiê
                       </button>
                     </td>
                   </tr>
@@ -250,58 +259,40 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
                 <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Detalhes da Solicitação</span>
                 <h2 className="text-xl font-bold text-slate-800">{selectedSubmission.name}</h2>
               </div>
-              <button 
-                onClick={() => setSelectedSubmission(null)} 
-                className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-slate-800 transition-all"
-              >✕</button>
+              <button onClick={() => setSelectedSubmission(null)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-slate-400 hover:text-slate-800 transition-all">✕</button>
             </div>
             <div className="p-8 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Contato Direto</h3>
-                  <div className="space-y-2">
-                    <p className="text-sm"><strong>RE:</strong> {selectedSubmission.re}</p>
-                    <p className="text-sm"><strong>E-mail:</strong> <a href={`mailto:${selectedSubmission.email}`} className="text-indigo-600 underline">{selectedSubmission.email}</a></p>
-                    <p className="text-sm"><strong>Telefone:</strong> <a href={`tel:${selectedSubmission.phone}`} className="text-indigo-600 underline">{selectedSubmission.phone}</a></p>
-                  </div>
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Contato</h3>
+                  <p className="text-sm"><strong>RE:</strong> {selectedSubmission.re}</p>
+                  <p className="text-sm"><strong>E-mail:</strong> {selectedSubmission.email}</p>
+                  <p className="text-sm"><strong>Telefone:</strong> {selectedSubmission.phone}</p>
                 </div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Estratégia Adotada</h3>
-                  <div className="space-y-2">
-                    <p className="text-sm"><strong>Modalidade:</strong> {selectedSubmission.isJudicial ? 'Judicial com Retroativo' : 'Apenas Administrativo'}</p>
-                    <p className="text-sm"><strong>Protocolo Web:</strong> {new Date(selectedSubmission.createdAt).toLocaleString('pt-BR')}</p>
-                    <p className="text-sm font-bold flex items-center gap-2">
-                      <strong>Status:</strong> 
-                      <span className={`px-2 py-0.5 rounded text-[10px] ${getStatusColor(selectedSubmission.status)}`}>{selectedSubmission.status}</span>
-                    </p>
-                  </div>
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Informações do Processo</h3>
+                  <p className="text-sm"><strong>Tipo:</strong> {selectedSubmission.isJudicial ? 'Judicial' : 'Administrativo'}</p>
+                  <p className="text-sm"><strong>Data:</strong> {new Date(selectedSubmission.createdAt).toLocaleString('pt-BR')}</p>
+                  <p className="text-sm"><strong>Status:</strong> <span className={`px-2 py-0.5 rounded text-[10px] ${getStatusColor(selectedSubmission.status)}`}>{selectedSubmission.status}</span></p>
                 </div>
               </div>
               
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Arquivos para Análise
-              </h3>
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">Documentos</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {selectedSubmission.files.map((file, idx) => (
-                  <div key={idx} className="group flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all">
+                  <div key={idx} className="group flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-200 hover:border-indigo-500 transition-all">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                         </svg>
+                      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-bold text-xs">
+                        PDF
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0">
                         <span className="text-[9px] font-black text-indigo-400 uppercase block">{file.category}</span>
                         <span className="font-bold text-slate-700 block text-xs truncate max-w-[150px]">{file.name}</span>
                       </div>
                     </div>
                     <button 
                       onClick={() => handleDownloadFile(file.url, file.name)}
-                      className="bg-slate-900 text-white p-2.5 rounded-xl hover:bg-black transition-all"
-                      title="Baixar Documento"
+                      className="bg-slate-900 text-white p-2 rounded-xl hover:bg-black transition-all"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -311,8 +302,8 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
                 ))}
               </div>
             </div>
-            <div className="p-6 bg-slate-50 border-t border-slate-100 text-center">
-              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-[0.2em]">CBPM Cessação Judicial 2026</p>
+            <div className="p-6 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-400 uppercase font-bold tracking-[0.2em]">
+              Assessoria Jurídica Militar 2026
             </div>
           </div>
         </div>

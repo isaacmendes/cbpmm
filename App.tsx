@@ -33,7 +33,7 @@ const App: React.FC = () => {
       
       if (data) {
         const mapped = data.map(sub => ({
-          id: sub.id,
+          id: String(sub.id),
           name: sub.name || 'Sem nome',
           re: sub.re || '---',
           email: sub.email || '',
@@ -53,7 +53,10 @@ const App: React.FC = () => {
 
   const handleUpdateStatus = async (id: string, newStatus: OfficerSubmission['status']) => {
     try {
-      // Atualiza no Banco de Dados (Supabase)
+      // 1. Atualizar o estado local IMEDIATAMENTE para feedback rápido ao usuário
+      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
+
+      // 2. Persistir no Banco de Dados (Supabase)
       const { error } = await supabase
         .from('submissions')
         .update({ status: newStatus })
@@ -61,14 +64,11 @@ const App: React.FC = () => {
       
       if (error) throw error;
       
-      // Atualiza o estado local para garantir que a interface reflita a mudança imediatamente
-      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
-      
-      console.log(`Status do registro ${id} alterado para ${newStatus} com sucesso no banco.`);
+      console.log(`[Persistência] Status ${id} -> ${newStatus} gravado com sucesso.`);
     } catch (err) {
       console.error("Erro ao persistir status no banco:", err);
-      alert("Erro ao gravar alteração no banco de dados.");
-      // Recarrega os dados para reverter a alteração visual se o banco falhar
+      alert("Falha ao salvar no banco. Revertendo alteração...");
+      // 3. Em caso de erro, recarregar do banco para garantir consistência
       fetchSubmissions();
     }
   };
@@ -85,7 +85,7 @@ const App: React.FC = () => {
   const handleSubmission = async (formData: any) => {
     const supabaseUrl = (supabase as any).supabaseUrl;
     if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
-      alert("ERRO: Chaves do Supabase não configuradas.");
+      alert("ERRO: Configuração do Supabase pendente.");
       return;
     }
 
@@ -120,7 +120,7 @@ const App: React.FC = () => {
       
       setShowSuccess(true);
     } catch (error: any) {
-      alert(`Erro: ${error.message || "Erro de conexão"}`);
+      alert(`Erro no envio: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -128,6 +128,7 @@ const App: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    // Credenciais fixas solicitadas
     if (username === 'admin' && password === '715115') {
       setIsAuthenticated(true);
       setShowLogin(false);
@@ -135,7 +136,7 @@ const App: React.FC = () => {
       setUsername('');
       setPassword('');
     } else {
-      alert('Credenciais incorretas.');
+      alert('Usuário ou senha inválidos.');
     }
   };
 
@@ -143,14 +144,13 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6">
         <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-2xl">
-          <h2 className="text-2xl font-bold text-center mb-6 text-slate-800">Acesso Administrativo</h2>
+          <h2 className="text-2xl font-bold text-center mb-6 text-slate-800">Login Jurídico</h2>
           <form onSubmit={handleLogin} className="space-y-4">
             <input type="text" placeholder="Usuário" className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600" value={username} onChange={(e) => setUsername(e.target.value)} required />
             <input type="password" placeholder="Senha" className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600" value={password} onChange={(e) => setPassword(e.target.value)} required />
             <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">Entrar</button>
-            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm text-center block mx-auto">Voltar</button>
+            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm text-center">Voltar ao Formulário</button>
           </form>
-          <p className="mt-4 text-[10px] text-center text-slate-400 uppercase tracking-widest">Assessoria Jurídica v2.1</p>
         </div>
       </div>
     );
@@ -158,14 +158,14 @@ const App: React.FC = () => {
 
   if (showSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 animate-fadeIn">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
         <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl text-center">
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
           </div>
-          <h2 className="text-3xl font-extrabold text-slate-800 mb-2">Sucesso!</h2>
-          <p className="text-slate-500 mb-8">Seus documentos foram enviados corretamente ao Dr. Isaac.</p>
-          <button onClick={() => setShowSuccess(false)} className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all">Novo Envio</button>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Envio Concluído!</h2>
+          <p className="text-slate-500 mb-8">O Dr. Isaac recebeu sua documentação com sucesso.</p>
+          <button onClick={() => setShowSuccess(false)} className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all">Fazer Outro Envio</button>
         </div>
       </div>
     );
@@ -175,9 +175,9 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50">
       {isSubmitting && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-xs w-full">
-            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="font-bold text-slate-800">Processando envio...</p>
+          <div className="bg-white p-8 rounded-3xl shadow-2xl text-center">
+            <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="font-bold text-slate-800">Enviando arquivos...</p>
           </div>
         </div>
       )}
