@@ -14,11 +14,10 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
     re: '',
     email: '',
     phone: '',
-    isJudicial: true,
+    isJudicial: true, // Mantido como true internamente para o payload do banco
     agreedToTerms: false,
   });
 
-  // Agora guardamos o objeto File real para evitar o erro "Failed to fetch"
   const [files, setFiles] = useState<{ category: string; label: string; name: string; file: File }[]>([]);
 
   const handleREChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,7 +47,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
           category,
           label,
           name: selectedFile.name,
-          file: selectedFile // Guardamos o arquivo bruto
+          file: selectedFile 
         }
       ]);
     }
@@ -67,7 +66,6 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
     if (formData.re.length < 8) return alert("Por favor, insira um RE válido (6 dígitos + dígito verificador).");
     if (formData.phone.length < 14) return alert("Por favor, insira um telefone válido com DDD.");
     
-    // Passamos os arquivos brutos para o App.tsx processar
     onSubmit({ ...formData, files });
   };
 
@@ -112,8 +110,9 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
         </button>
       </div>
 
-      <div className="mb-12 flex justify-between items-center relative">
-        {[1, 2, 3, 4].map((i) => (
+      {/* Stepper ajustado para 3 passos */}
+      <div className="mb-12 flex justify-between items-center relative max-w-sm mx-auto">
+        {[1, 2, 3].map((i) => (
           <div key={i} className="flex flex-col items-center z-10">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${step >= i ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
               {i}
@@ -121,7 +120,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
           </div>
         ))}
         <div className="absolute top-5 left-0 w-full h-0.5 bg-slate-200 -z-0"></div>
-        <div className="absolute top-5 left-0 h-0.5 bg-indigo-600 transition-all duration-500 -z-0" style={{ width: `${(step - 1) * 33.33}%` }}></div>
+        <div className="absolute top-5 left-0 h-0.5 bg-indigo-600 transition-all duration-500 -z-0" style={{ width: `${(step - 1) * 50}%` }}></div>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
@@ -154,44 +153,14 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
         )}
 
         {step === 3 && (
-          <div className="space-y-6 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-slate-800">3. Definição de Estratégia</h2>
-            <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-6">
-              <label className="flex items-start gap-4 cursor-pointer">
-                <input type="checkbox" checked={formData.isJudicial} onChange={e => setFormData({...formData, isJudicial: e.target.checked})} className="mt-1 w-5 h-5 accent-indigo-600" />
-                <div>
-                  <p className="font-bold text-indigo-900">Ação Judicial de Repetição do Indébito</p>
-                  <p className="text-sm text-indigo-700 mt-1">Busca a devolução dos valores dos últimos 5 anos.</p>
-                </div>
-              </label>
-            </div>
-            {formData.isJudicial ? (
-              <div className="space-y-4">
-                {renderFileInput(FileCategory.JUDICIAL, 'Holerites dos últimos 5 anos', 'Arquivo PDF único preferencialmente')}
-                {renderFileInput(FileCategory.JUDICIAL, 'Extrato de Consignações', 'Disponível no Portal SOU.SP')}
-                {renderFileInput(FileCategory.JUDICIAL, 'Declaração de Hipossuficiência', 'Para Justiça Gratuita')}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {renderFileInput(FileCategory.ADMINISTRATIVE, 'Termo de Desligamento', 'Petição administrativa fundamentada')}
-              </div>
-            )}
-            <div className="flex gap-4">
-              <button type="button" onClick={prevStep} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">Voltar</button>
-              <button type="button" onClick={nextStep} className="flex-2 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Próximo</button>
-            </div>
-          </div>
-        )}
-
-        {step === 4 && (
           <div className="space-y-8 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-slate-800">4. Revisão e Compromisso</h2>
+            <h2 className="text-2xl font-bold text-slate-800">3. Revisão e Compromisso</h2>
             <div className="bg-red-50 p-6 rounded-2xl border border-red-100 text-sm text-red-700">
-              <strong>AVISO:</strong> O cancelamento cessará o atendimento médico para você e dependentes.
+              <strong>AVISO:</strong> O cancelamento cessará o atendimento médico para você e dependentes. Esta ação solicita a cessação e o ressarcimento dos valores.
             </div>
             <label className="flex items-start gap-4 cursor-pointer p-4 rounded-xl border border-slate-200 bg-white">
               <input required type="checkbox" checked={formData.agreedToTerms} onChange={e => setFormData({...formData, agreedToTerms: e.target.checked})} className="mt-1 w-5 h-5 accent-indigo-600" />
-              <p className="text-sm text-slate-700">Confirmo as informações e aceito a perda do benefício de saúde.</p>
+              <p className="text-sm text-slate-700">Confirmo as informações e aceito a perda do benefício de saúde para fins de interrupção do desconto em folha.</p>
             </label>
             <div className="flex gap-4">
               <button type="button" onClick={prevStep} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors">Voltar</button>
