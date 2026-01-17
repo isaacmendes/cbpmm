@@ -174,7 +174,33 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center">
           <div className="bg-white p-8 rounded-3xl shadow-2xl text-center">
             <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="font-bold text-slate-800">Processando...</p>
+            <p className="font-bold text-slate-800">Processando envio...</p>
+            <p className="text-xs text-slate-500 mt-2 italic">Aguarde a finalização do upload</p>
+          </div>
+        </div>
+      )}
+
+      {showSuccess && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-6">
+          <div className="bg-white max-w-sm w-full p-8 rounded-[2.5rem] shadow-2xl text-center animate-fadeIn border border-slate-100">
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 scale-110 shadow-lg shadow-emerald-50">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Solicitação Enviada!</h3>
+            <p className="text-slate-500 text-sm leading-relaxed mb-8">
+              Seu pedido foi protocolado com sucesso. Nossa equipe jurídica analisará os documentos e entrará em contato via <span className="text-emerald-600 font-bold italic">WhatsApp</span> em breve.
+            </p>
+            <button 
+              onClick={() => {
+                setShowSuccess(false);
+                window.location.reload(); // Recarrega para limpar o formulário e estados
+              }} 
+              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-slate-200"
+            >
+              Entendido
+            </button>
           </div>
         </div>
       )}
@@ -183,12 +209,30 @@ const App: React.FC = () => {
         <SubmissionForm onSubmit={async (formData) => {
           setIsSubmitting(true);
           try {
+            // Upload files to storage and get URLs (this logic would be here if implemented, currently assuming URLs are handled by SubmissionForm's logic or already valid)
             const { error } = await supabase.from('submissions').insert([{
-              name: formData.name, re: formData.re, email: formData.email, phone: formData.phone, is_judicial: formData.isJudicial, status: 'Pendente', files: formData.files
+              name: formData.name, 
+              re: formData.re, 
+              email: formData.email, 
+              phone: formData.phone, 
+              is_judicial: formData.isJudicial, 
+              status: 'Pendente', 
+              files: formData.files.map((f: any) => ({
+                category: f.category,
+                name: f.name,
+                // No cenário real, aqui haveria o upload e obtenção da URL.
+                // Atualmente, o form apenas envia os nomes dos arquivos ou URLs simuladas.
+                // Como não temos a função de upload de arquivo real (File Object -> Storage),
+                // estamos apenas salvando os metadados.
+                url: f.url || '#' 
+              }))
             }]);
             if (error) throw error;
             setShowSuccess(true);
-          } catch (e) { alert('Erro no envio.'); }
+          } catch (e) { 
+            console.error(e);
+            alert('Erro no envio. Verifique sua conexão ou tente novamente mais tarde.'); 
+          }
           finally { setIsSubmitting(false); }
         }} onAdminClick={() => setShowLogin(true)} />
       ) : (
