@@ -146,27 +146,53 @@ const App: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === 'admin' && password === '715115') {
+    // Credenciais atualizadas: Usuário 211160 (OAB), mesma senha 715115
+    if (username === '211160' && password === '715115') {
       setIsAuthenticated(true);
       setShowLogin(false);
       setView(ViewMode.ADMIN);
       setUsername('');
       setPassword('');
     } else {
-      alert('Usuário ou senha inválidos.');
+      alert('OAB ou senha inválidos.');
     }
+  };
+
+  const handleOABChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '');
+    setUsername(value);
   };
 
   if (showLogin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6">
-        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-2xl">
-          <h2 className="text-2xl font-bold text-center mb-6 text-slate-800">Login Jurídico</h2>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input type="text" placeholder="Usuário" className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600" value={username} onChange={(e) => setUsername(e.target.value)} required />
-            <input type="password" placeholder="Senha" className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">Entrar</button>
-            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm text-center">Voltar ao Formulário</button>
+        <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl animate-fadeIn">
+          <h2 className="text-3xl font-extrabold text-center mb-8 text-slate-800 tracking-tight">Login Jurídico</h2>
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">OAB</label>
+              <input 
+                type="text" 
+                placeholder="Apenas números" 
+                className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600 transition-all font-medium" 
+                value={username} 
+                onChange={handleOABChange} 
+                required 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Senha</label>
+              <input 
+                type="password" 
+                placeholder="Sua senha" 
+                className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-600 transition-all font-medium" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+              />
+            </div>
+            <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 transform active:scale-[0.98]">Entrar</button>
+            <button type="button" onClick={() => setShowLogin(false)} className="w-full py-2 text-slate-400 text-sm text-center font-medium hover:text-slate-600 transition-colors">Voltar ao Formulário</button>
           </form>
         </div>
       </div>
