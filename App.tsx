@@ -52,41 +52,45 @@ const App: React.FC = () => {
   };
 
   const handleUpdateStatus = async (id: string, newStatus: OfficerSubmission['status']) => {
-    // Guarda o estado anterior para reverter em caso de falha no banco
     const previousState = [...submissions];
-    
-    // Atualização otimista na tela
     setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
 
     try {
-      // Converte o ID para número antes de enviar ao Supabase (comum em IDs autoincrementais)
       const numericId = parseInt(id, 10);
       const targetId = isNaN(numericId) ? id : numericId;
 
-      const { error, data } = await supabase
+      const { error } = await supabase
         .from('submissions')
         .update({ status: newStatus })
-        .eq('id', targetId)
-        .select();
+        .eq('id', targetId);
+
+      if (error) throw error;
+    } catch (err: any) {
+      console.error("Erro na atualização:", err);
+      setSubmissions(previousState);
+      alert(err.code === '42501' ? "Erro de Permissão: Crie a política de UPDATE no Supabase." : "Erro ao salvar status.");
+    }
+  };
+
+  const handleDeleteSubmission = async (id: string) => {
+    try {
+      const numericId = parseInt(id, 10);
+      const targetId = isNaN(numericId) ? id : numericId;
+
+      const { error } = await supabase
+        .from('submissions')
+        .delete()
+        .eq('id', targetId);
 
       if (error) throw error;
 
-      if (!data || data.length === 0) {
-        throw new Error("O registro não foi encontrado no banco de dados para atualização.");
-      }
-
-      console.log("Banco de dados atualizado com sucesso!");
+      // Remove do estado local para atualizar a tela
+      setSubmissions(prev => prev.filter(s => s.id !== id));
+      return true;
     } catch (err: any) {
-      console.error("Erro na atualização do banco:", err);
-      // Reverte a interface
-      setSubmissions(previousState);
-      
-      let errorMessage = "Não foi possível salvar a alteração no banco de dados.";
-      if (err.code === '42501') {
-        errorMessage = "ERRO DE PERMISSÃO: Você precisa criar a política de 'UPDATE' no painel do Supabase para a tabela submissions.";
-      }
-      
-      alert(errorMessage);
+      console.error("Erro ao excluir:", err);
+      alert(err.code === '42501' ? "Erro de Permissão: Crie a política de DELETE no Supabase." : "Erro ao excluir registro.");
+      return false;
     }
   };
 
@@ -100,12 +104,6 @@ const App: React.FC = () => {
   };
 
   const handleSubmission = async (formData: any) => {
-    const supabaseUrl = (supabase as any).supabaseUrl;
-    if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
-      alert("ERRO: Configuração do Supabase pendente.");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const processedFiles = [];
@@ -129,12 +127,8 @@ const App: React.FC = () => {
         files: processedFiles
       };
 
-      const { error: insertError } = await supabase
-        .from('submissions')
-        .insert([payload]);
-
-      if (insertError) throw insertError;
-      
+      const { error } = await supabase.from('submissions').insert([payload]);
+      if (error) throw error;
       setShowSuccess(true);
     } catch (error: any) {
       alert(`Erro no envio: ${error.message}`);
@@ -193,7 +187,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center">
           <div className="bg-white p-8 rounded-3xl shadow-2xl text-center">
             <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="font-bold text-slate-800">Enviando arquivos...</p>
+            <p className="font-bold text-slate-800">Processando...</p>
           </div>
         </div>
       )}
@@ -205,6 +199,7 @@ const App: React.FC = () => {
           submissions={submissions} 
           onBack={() => setView(ViewMode.CLIENT)} 
           onUpdateStatus={handleUpdateStatus}
+          onDeleteSubmission={handleDeleteSubmission}
         />
       )}
     </div>
