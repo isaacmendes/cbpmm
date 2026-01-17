@@ -57,14 +57,56 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
     return files.find(f => f.label === label);
   };
 
-  const nextStep = () => setStep(s => s + 1);
+  const validateStep1 = () => {
+    if (!formData.name || !formData.re || !formData.email || !formData.phone) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return false;
+    }
+    if (formData.re.length < 8) {
+      alert("Por favor, insira um RE válido (6 dígitos + dígito verificador).");
+      return false;
+    }
+    if (formData.phone.length < 14) {
+      alert("Por favor, insira um telefone válido com DDD.");
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep2 = () => {
+    const requiredLabels = [
+      'Identidade Funcional (RE)',
+      'Carteira de Habilitação - CNH',
+      'Último Holerite'
+    ];
+    const missingFiles = requiredLabels.filter(label => !getFileForLabel(label));
+    
+    if (missingFiles.length > 0) {
+      alert(`Por favor, anexe os documentos obrigatórios: \n- ${missingFiles.join('\n- ')}`);
+      return false;
+    }
+    return true;
+  };
+
+  const nextStep = () => {
+    if (step === 1 && !validateStep1()) return;
+    if (step === 2 && !validateStep2()) return;
+    setStep(s => s + 1);
+  };
+
   const prevStep = () => setStep(s => s - 1);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.agreedToTerms) return alert("Você deve aceitar os termos de ciência e concordância.");
-    if (formData.re.length < 8) return alert("Por favor, insira um RE válido (6 dígitos + dígito verificador).");
-    if (formData.phone.length < 14) return alert("Por favor, insira um telefone válido com DDD.");
+    if (!validateStep1()) return;
+    if (!validateStep2()) {
+      setStep(2);
+      return;
+    }
+    if (!formData.agreedToTerms) {
+      alert("Você deve marcar a Declaração de Ciência e Concordância.");
+      return;
+    }
     
     onSubmit({ ...formData, files });
   };
@@ -77,7 +119,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
       <div className={`p-4 border border-dashed rounded-xl transition-all duration-300 ${selectedFile ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-300 hover:bg-slate-50'}`}>
         <div className="flex justify-between items-center gap-4">
           <div className="flex-1 min-w-0">
-            <p className={`font-semibold transition-colors ${selectedFile ? 'text-emerald-700' : 'text-slate-700'}`}>{label}</p>
+            <p className={`font-semibold transition-colors ${selectedFile ? 'text-emerald-700' : 'text-slate-700'}`}>{label} <span className="text-red-500">*</span></p>
             {selectedFile ? (
               <p className="text-xs text-emerald-600 font-medium truncate flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -91,7 +133,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
           </div>
           <label className={`cursor-pointer px-4 py-2 rounded-lg border text-sm font-bold transition-all shrink-0 ${selectedFile ? 'bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600' : 'bg-white border-slate-200 text-indigo-600 hover:bg-indigo-50'}`}>
             {selectedFile ? 'Alterar' : 'Selecionar'}
-            <input type="file" className="hidden" onChange={(e) => handleFileChange(category, label, e)} />
+            <input type="file" className="hidden" required onChange={(e) => handleFileChange(category, label, e)} />
           </label>
         </div>
       </div>
@@ -127,10 +169,10 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
           <div className="space-y-6 animate-fadeIn">
             <h2 className="text-2xl font-bold text-slate-800">1. Dados Funcionais</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={inputClasses} placeholder="Nome Completo" />
-              <input required value={formData.re} onChange={handleREChange} className={inputClasses} placeholder="RE: 123456-7" maxLength={8} />
-              <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputClasses} placeholder="E-mail" />
-              <input required value={formData.phone} onChange={handlePhoneChange} className={inputClasses} placeholder="Telefone/WhatsApp" maxLength={15} />
+              <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={inputClasses} placeholder="Nome Completo *" />
+              <input required value={formData.re} onChange={handleREChange} className={inputClasses} placeholder="RE: 123456-7 *" maxLength={8} />
+              <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputClasses} placeholder="E-mail *" />
+              <input required value={formData.phone} onChange={handlePhoneChange} className={inputClasses} placeholder="Telefone/WhatsApp *" maxLength={15} />
             </div>
             <button type="button" onClick={nextStep} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Próximo</button>
           </div>
@@ -186,7 +228,7 @@ const SubmissionForm: React.FC<SubmissionFormProps> = ({ onSubmit, onAdminClick 
               <label className="flex items-start gap-4 cursor-pointer p-5 rounded-2xl border-2 border-slate-100 bg-white hover:border-indigo-500 transition-all group">
                 <input required type="checkbox" checked={formData.agreedToTerms} onChange={e => setFormData({...formData, agreedToTerms: e.target.checked})} className="mt-1 w-5 h-5 accent-indigo-600 rounded" />
                 <p className="text-sm text-slate-700 leading-relaxed group-hover:text-slate-900">
-                  Declaro que revisei todas as informações prestadas, estou ciente da perda do benefício do CBPM e concordo com a cobrança dos honorários advocatícios no valor informado, após a cessação do desconto em folha.
+                  Declaro que revisei todas as informações prestadas, estou ciente da perda do benefício do CBPM e concordo com a cobrança dos honorários advocatícios no valor informado, após a cessação do desconto em folha. <span className="text-red-500">*</span>
                 </p>
               </label>
             </div>
