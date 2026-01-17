@@ -19,6 +19,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchSubmissions();
+    } else {
+      setSubmissions([]); // Limpa dados sensíveis ao deslogar
     }
   }, [isAuthenticated]);
 
@@ -84,7 +86,6 @@ const App: React.FC = () => {
 
       if (error) throw error;
 
-      // Remove do estado local para atualizar a tela
       setSubmissions(prev => prev.filter(s => s.id !== id));
       return true;
     } catch (err: any) {
@@ -92,6 +93,12 @@ const App: React.FC = () => {
       alert(err.code === '42501' ? "Erro de Permissão: Crie a política de DELETE no Supabase." : "Erro ao excluir registro.");
       return false;
     }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setView(ViewMode.CLIENT);
+    setShowLogin(false);
   };
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -197,7 +204,7 @@ const App: React.FC = () => {
       ) : (
         <Dashboard 
           submissions={submissions} 
-          onBack={() => setView(ViewMode.CLIENT)} 
+          onBack={handleLogout} 
           onUpdateStatus={handleUpdateStatus}
           onDeleteSubmission={handleDeleteSubmission}
         />
