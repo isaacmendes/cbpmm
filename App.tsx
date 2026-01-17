@@ -33,7 +33,7 @@ const App: React.FC = () => {
       
       if (data) {
         const mapped = data.map(sub => ({
-          id: String(sub.id),
+          id: String(sub.id), // Mantemos como string no front para consistência
           name: sub.name || 'Sem nome',
           re: sub.re || '---',
           email: sub.email || '',
@@ -53,22 +53,25 @@ const App: React.FC = () => {
 
   const handleUpdateStatus = async (id: string, newStatus: OfficerSubmission['status']) => {
     try {
-      // 1. Atualizar o estado local IMEDIATAMENTE para feedback rápido ao usuário
-      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
+      // 1. Persistir no Banco de Dados (Supabase)
+      // Convertendo id para Number caso o banco use integer primary key
+      const dbId = isNaN(Number(id)) ? id : Number(id);
 
-      // 2. Persistir no Banco de Dados (Supabase)
       const { error } = await supabase
         .from('submissions')
         .update({ status: newStatus })
-        .eq('id', id);
+        .eq('id', dbId);
       
       if (error) throw error;
       
-      console.log(`[Persistência] Status ${id} -> ${newStatus} gravado com sucesso.`);
+      // 2. Só atualiza o estado local APÓS o sucesso no banco
+      setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
+      
+      console.log(`[Persistência OK] ID ${id} atualizado para ${newStatus}`);
     } catch (err) {
       console.error("Erro ao persistir status no banco:", err);
-      alert("Falha ao salvar no banco. Revertendo alteração...");
-      // 3. Em caso de erro, recarregar do banco para garantir consistência
+      alert("Falha crítica ao salvar no banco. Verifique sua conexão ou permissões.");
+      // Recarrega para garantir que a UI mostre o que realmente está no banco
       fetchSubmissions();
     }
   };
@@ -128,7 +131,6 @@ const App: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Credenciais fixas solicitadas
     if (username === 'admin' && password === '715115') {
       setIsAuthenticated(true);
       setShowLogin(false);

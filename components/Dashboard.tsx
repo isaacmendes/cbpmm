@@ -37,8 +37,11 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
   const handleStatusChange = async (id: string, newStatus: any) => {
     setUpdatingId(id);
     try {
+      // Dispara a função que chama o Supabase no App.tsx
       await onUpdateStatus(id, newStatus);
-      showNotification("Status atualizado com sucesso!");
+      showNotification("Alteração salva permanentemente!");
+    } catch (err) {
+      console.error("Erro ao mudar status:", err);
     } finally {
       setUpdatingId(null);
     }
@@ -94,7 +97,7 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
       
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      showNotification(`Download iniciado: ${fileName}`);
+      showNotification(`Download: ${fileName}`);
     } catch (err) {
       console.error("Erro ao processar download:", err);
       alert("Erro ao baixar o arquivo.");
