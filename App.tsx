@@ -52,39 +52,41 @@ const App: React.FC = () => {
   };
 
   const handleUpdateStatus = async (id: string, newStatus: OfficerSubmission['status']) => {
-    // 1. Atualização Otimista: Muda na tela antes de ir pro banco para ser rápido
-    const originalSubmissions = [...submissions];
+    // Guarda o estado anterior para reverter em caso de falha no banco
+    const previousState = [...submissions];
+    
+    // Atualização otimista na tela
     setSubmissions(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
 
     try {
-      // 2. Tenta gravar no Supabase
-      // Importante: Verifique se o nome da coluna no seu banco é exatamente 'status'
+      // Converte o ID para número antes de enviar ao Supabase (comum em IDs autoincrementais)
+      const numericId = parseInt(id, 10);
+      const targetId = isNaN(numericId) ? id : numericId;
+
       const { error, data } = await supabase
         .from('submissions')
         .update({ status: newStatus })
-        .eq('id', id)
-        .select(); // Pedimos o select de volta para confirmar que houve alteração
-      
-      if (error) {
-        throw error;
-      }
+        .eq('id', targetId)
+        .select();
 
-      // Se o data vier vazio, significa que o filtro .eq('id', id) não encontrou ninguém
+      if (error) throw error;
+
       if (!data || data.length === 0) {
-        console.warn("Nenhum registro foi atualizado. Verifique se o ID existe no banco.");
-      } else {
-        console.log("Sucesso: Status gravado no banco de dados.", data);
+        throw new Error("O registro não foi encontrado no banco de dados para atualização.");
       }
 
+      console.log("Banco de dados atualizado com sucesso!");
     } catch (err: any) {
-      console.error("Erro Supabase:", err);
-      // REVERTE se der erro para não enganar o usuário
-      setSubmissions(originalSubmissions);
+      console.error("Erro na atualização do banco:", err);
+      // Reverte a interface
+      setSubmissions(previousState);
       
-      let msg = "Erro ao gravar no banco.";
-      if (err.code === '42501') msg = "Erro de Permissão (RLS): O banco não permite alterações via API. Verifique as políticas do Supabase.";
+      let errorMessage = "Não foi possível salvar a alteração no banco de dados.";
+      if (err.code === '42501') {
+        errorMessage = "ERRO DE PERMISSÃO: Você precisa criar a política de 'UPDATE' no painel do Supabase para a tabela submissions.";
+      }
       
-      alert(msg);
+      alert(errorMessage);
     }
   };
 
