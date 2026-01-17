@@ -35,6 +35,18 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
     if (!error) fetchAdvogados();
   };
 
+  const deleteAdvogado = async (adv: Advogado) => {
+    const confirmed = window.confirm(`CUIDADO: Deseja realmente remover o acesso e o cadastro do advogado ${adv.nome_completo}?`);
+    if (confirmed) {
+      const { error } = await supabase.from('advogados').delete().eq('id', adv.id);
+      if (error) {
+        alert("Erro ao excluir advogado.");
+      } else {
+        fetchAdvogados();
+      }
+    }
+  };
+
   const filteredSubmissions = useMemo(() => {
     return submissions.filter(sub => {
       const matchesSearch = sub.name.toLowerCase().includes(searchTerm.toLowerCase()) || sub.re.includes(searchTerm);
@@ -155,21 +167,37 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Advogado</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">OAB</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Telefone</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Acesso</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Acesso</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {advogados.map(adv => (
-                <tr key={adv.id}>
-                  <td className="px-6 py-4 font-bold text-slate-800">{adv.nome_completo}</td>
-                  <td className="px-6 py-4 font-mono text-sm">{adv.oab.substring(0,3)}.{adv.oab.substring(3)}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{adv.telefone}</td>
+                <tr key={adv.id} className="hover:bg-slate-50/50">
                   <td className="px-6 py-4">
-                    <div className="flex gap-2">
-                      <button onClick={() => updateAdvogadoStatus(adv.id, 'Ativo')} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${adv.status === 'Ativo' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'}`}>Ativo</button>
-                      <button onClick={() => updateAdvogadoStatus(adv.id, 'Pendente')} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${adv.status === 'Pendente' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-600'}`}>Pendente</button>
-                      <button onClick={() => updateAdvogadoStatus(adv.id, 'Bloqueado')} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${adv.status === 'Bloqueado' ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-400 hover:bg-rose-50 hover:text-rose-600'}`}>Bloquear</button>
+                    <span className="font-bold text-slate-800">{adv.nome_completo}</span>
+                  </td>
+                  <td className="px-6 py-4 font-mono text-sm">
+                    {adv.oab.length === 6 ? `${adv.oab.substring(0,3)}.${adv.oab.substring(3)}` : adv.oab}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{adv.telefone}</td>
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex justify-center gap-1">
+                      <button onClick={() => updateAdvogadoStatus(adv.id, 'Ativo')} className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${adv.status === 'Ativo' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' : 'bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'}`}>Ativo</button>
+                      <button onClick={() => updateAdvogadoStatus(adv.id, 'Pendente')} className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${adv.status === 'Pendente' ? 'bg-amber-500 text-white shadow-md shadow-amber-100' : 'bg-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-600'}`}>Pendente</button>
+                      <button onClick={() => updateAdvogadoStatus(adv.id, 'Bloqueado')} className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${adv.status === 'Bloqueado' ? 'bg-slate-700 text-white shadow-md shadow-slate-200' : 'bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-900'}`}>Bloquear</button>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <button 
+                      onClick={() => deleteAdvogado(adv)}
+                      className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-all"
+                      title="Excluir Advogado"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </td>
                 </tr>
               ))}
