@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { OfficerSubmission } from '../types';
 
 interface DashboardProps {
@@ -11,15 +11,31 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStatus }) => {
   const [selectedSubmission, setSelectedSubmission] = useState<OfficerSubmission | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  
+  // Estados para Filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('Todos');
 
   const showNotification = (message: string) => {
     setNotification(message);
     setTimeout(() => setNotification(null), 3000);
   };
 
+  const filteredSubmissions = useMemo(() => {
+    return submissions.filter(sub => {
+      const matchesSearch = 
+        sub.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        sub.re.includes(searchTerm);
+      
+      const matchesStatus = statusFilter === 'Todos' || sub.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [submissions, searchTerm, statusFilter]);
+
   const exportToCSV = () => {
     const headers = ["ID", "Nome", "RE", "Email", "Telefone", "Status", "Tipo", "Data"];
-    const rows = submissions.map(s => [
+    const rows = filteredSubmissions.map(s => [
       s.id,
       s.name,
       s.re,
@@ -41,7 +57,7 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showNotification("Relatório Excel exportado com sucesso!");
+    showNotification("Relatório exportado com sucesso!");
   };
 
   const handleDownloadFile = (base64Data: string, fileName: string) => {
@@ -70,7 +86,7 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
       showNotification(`Arquivo "${fileName}" baixado com sucesso!`);
     } catch (err) {
       console.error("Erro ao processar download:", err);
-      alert("Erro ao baixar o arquivo. O formato pode estar corrompido.");
+      alert("Erro ao baixar o arquivo.");
     }
   };
 
@@ -86,7 +102,6 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12 relative">
-      {/* Notificação Toast */}
       {notification && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-fadeIn">
           <div className="bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10">
@@ -124,6 +139,39 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
         </div>
       </div>
 
+      {/* Barra de Filtros */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 relative group">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input 
+            type="text" 
+            placeholder="Buscar por Nome ou RE..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
+          />
+        </div>
+        <div className="sm:w-64 flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">Status:</span>
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-slate-700"
+          >
+            <option value="Todos">Todos os Status</option>
+            <option value="Pendente">Pendente</option>
+            <option value="Em Análise">Em Análise</option>
+            <option value="Ação Protocolada">Ação Protocolada</option>
+            <option value="Aguardando Liminar">Aguardando Liminar</option>
+            <option value="Concluído">Concluído</option>
+          </select>
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -137,12 +185,19 @@ const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStat
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {submissions.length === 0 ? (
+              {filteredSubmissions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">Nenhuma solicitação encontrada.</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                    <div className="flex flex-col items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Nenhum resultado encontrado para os filtros aplicados.
+                    </div>
+                  </td>
                 </tr>
               ) : (
-                submissions.map((sub) => (
+                filteredSubmissions.map((sub) => (
                   <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
