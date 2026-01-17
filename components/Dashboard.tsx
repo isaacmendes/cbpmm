@@ -1,270 +1,166 @@
 
-import React, { useState, useMemo } from 'react';
-import { OfficerSubmission } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { OfficerSubmission, Advogado } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface DashboardProps {
   submissions: OfficerSubmission[];
   onBack: () => void;
   onUpdateStatus: (id: string, status: OfficerSubmission['status']) => void;
   onDeleteSubmission: (id: string) => Promise<boolean>;
+  isSuperAdmin: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStatus, onDeleteSubmission }) => {
+const Dashboard: React.FC<DashboardProps> = ({ submissions, onBack, onUpdateStatus, onDeleteSubmission, isSuperAdmin }) => {
+  const [activeTab, setActiveTab] = useState<'submissions' | 'advogados'>('submissions');
+  const [advogados, setAdvogados] = useState<Advogado[]>([]);
   const [selectedSubmission, setSelectedSubmission] = useState<OfficerSubmission | null>(null);
-  const [notification, setNotification] = useState<string | null>(null);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
-  
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('Todos');
+  const [statusFilter, setStatusFilter] = useState('Todos');
 
-  const showNotification = (message: string) => {
-    setNotification(message);
-    setTimeout(() => setNotification(null), 3000);
+  useEffect(() => {
+    if (isSuperAdmin && activeTab === 'advogados') {
+      fetchAdvogados();
+    }
+  }, [activeTab]);
+
+  const fetchAdvogados = async () => {
+    const { data } = await supabase.from('advogados').select('*').order('created_at', { ascending: false });
+    if (data) setAdvogados(data);
+  };
+
+  const updateAdvogadoStatus = async (id: string, status: string) => {
+    const { error } = await supabase.from('advogados').update({ status }).eq('id', id);
+    if (!error) fetchAdvogados();
   };
 
   const filteredSubmissions = useMemo(() => {
     return submissions.filter(sub => {
-      const matchesSearch = 
-        sub.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        sub.re.includes(searchTerm);
+      const matchesSearch = sub.name.toLowerCase().includes(searchTerm.toLowerCase()) || sub.re.includes(searchTerm);
       const matchesStatus = statusFilter === 'Todos' || sub.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [submissions, searchTerm, statusFilter]);
 
-  const handleStatusChange = async (id: string, newStatus: any) => {
-    setUpdatingId(id);
-    try {
-      await onUpdateStatus(id, newStatus);
-      showNotification("Alteração salva!");
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  const handleDelete = async (sub: OfficerSubmission) => {
-    const confirm = window.confirm(`Tem certeza que deseja EXCLUIR permanentemente o cadastro de ${sub.name} (RE: ${sub.re})? Esta ação não pode ser desfeita.`);
-    
-    if (confirm) {
-      setIsDeletingId(sub.id);
-      const success = await onDeleteSubmission(sub.id);
-      if (success) {
-        showNotification("Cadastro excluído com sucesso.");
-      }
-      setIsDeletingId(null);
-    }
-  };
-
-  const exportToCSV = () => {
-    const headers = ["ID", "Nome", "RE", "Email", "Telefone", "Status", "Tipo", "Data"];
-    const rows = filteredSubmissions.map(s => [
-      s.id, s.name, s.re, s.email, s.phone, s.status,
-      s.isJudicial ? "Judicial" : "Administrativo",
-      new Date(s.createdAt).toLocaleDateString('pt-BR')
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `export_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadFile = (base64Data: string, fileName: string) => {
-    try {
-      const parts = base64Data.split(';base64,');
-      const contentType = parts[0].split(':')[1];
-      const raw = window.atob(parts[1] || parts[0]);
-      const uInt8Array = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; ++i) uInt8Array[i] = raw.charCodeAt(i);
-      const blob = new Blob([uInt8Array], { type: contentType });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      alert("Erro ao baixar o arquivo.");
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Concluído': return 'bg-emerald-100 text-emerald-700';
-      case 'Ação Protocolada': return 'bg-indigo-100 text-indigo-700';
-      case 'Aguardando Liminar': return 'bg-blue-100 text-blue-700';
-      case 'Em Análise': return 'bg-amber-100 text-amber-700';
-      default: return 'bg-slate-100 text-slate-600';
-    }
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12 relative">
-      {notification && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-fadeIn">
-          <div className="bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-            <span className="text-xs font-bold">{notification}</span>
-          </div>
-        </div>
-      )}
-
+    <div className="max-w-7xl mx-auto px-4 py-12 relative font-inter">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Painel Jurídico</h1>
-          <p className="text-slate-500 text-sm">Gerenciamento de solicitações CBPM</p>
+          <p className="text-slate-500 text-sm">Bem-vindo ao sistema de gestão CBPM</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={exportToCSV} className="bg-white border border-slate-200 px-4 py-2 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            Exportar Excel
-          </button>
+        <div className="flex gap-2">
+          {isSuperAdmin && (
+            <div className="flex bg-slate-100 p-1 rounded-xl mr-4">
+              <button onClick={() => setActiveTab('submissions')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'submissions' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Solicitações</button>
+              <button onClick={() => setActiveTab('advogados')} className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'advogados' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Advogados</button>
+            </div>
+          )}
           <button onClick={onBack} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-black transition-all">Sair do Painel</button>
         </div>
       </div>
 
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative group">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-indigo-500 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+      {activeTab === 'submissions' ? (
+        <>
+          <div className="mb-6 flex flex-col sm:flex-row gap-4">
+            <input type="text" placeholder="Buscar por Nome ou RE..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm" />
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="sm:w-64 px-4 py-3 rounded-xl border border-slate-200 outline-none text-sm font-bold">
+              <option value="Todos">Todos Status</option>
+              {['Pendente', 'Em Análise', 'Ação Protocolada', 'Aguardando Liminar', 'Concluído'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
-          <input type="text" placeholder="Buscar por Nome ou RE..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-medium" />
-        </div>
-        <div className="sm:w-64 flex items-center gap-2">
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm font-bold text-slate-700">
-            <option value="Todos">Todos Status</option>
-            <option value="Pendente">Pendente</option>
-            <option value="Em Análise">Em Análise</option>
-            <option value="Ação Protocolada">Ação Protocolada</option>
-            <option value="Aguardando Liminar">Aguardando Liminar</option>
-            <option value="Concluído">Concluído</option>
-          </select>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-400">RE / Nome</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-400">Data</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-400">Modalidade</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-400">Status</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-400">Ações</th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-slate-400 text-center">Excluir</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredSubmissions.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400">Nenhum resultado encontrado.</td></tr>
-              ) : (
-                filteredSubmissions.map((sub) => (
-                  <tr key={sub.id} className="hover:bg-slate-50/50 transition-colors">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Oficial</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Modalidade</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredSubmissions.map(sub => (
+                  <tr key={sub.id} className="hover:bg-slate-50/50">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="font-mono text-[10px] text-slate-400">{sub.re}</span>
                         <span className="font-bold text-slate-800">{sub.name}</span>
+                        <span className="text-[10px] text-slate-400">RE {sub.re}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-500 text-sm">{new Date(sub.createdAt).toLocaleDateString('pt-BR')}</td>
                     <td className="px-6 py-4">
-                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${sub.isJudicial ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>
-                        {sub.isJudicial ? 'Judicial' : 'Adm'}
+                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${sub.isJudicial ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-600'}`}>
+                        {sub.isJudicial ? 'Judicial' : 'Administrativo'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <select 
-                        disabled={updatingId === sub.id}
-                        value={sub.status}
-                        onChange={(e) => handleStatusChange(sub.id, e.target.value)}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-full border-none outline-none ring-0 cursor-pointer ${getStatusColor(sub.status)}`}
-                      >
-                        <option value="Pendente">Pendente</option>
-                        <option value="Em Análise">Em Análise</option>
-                        <option value="Ação Protocolada">Ação Protocolada</option>
-                        <option value="Aguardando Liminar">Aguardando Liminar</option>
-                        <option value="Concluído">Concluído</option>
+                      <select value={sub.status} onChange={e => onUpdateStatus(sub.id, e.target.value as any)} className="text-xs font-bold px-3 py-1.5 rounded-full border-slate-200">
+                        {['Pendente', 'Em Análise', 'Ação Protocolada', 'Aguardando Liminar', 'Concluído'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </td>
-                    <td className="px-6 py-4">
-                      <button onClick={() => setSelectedSubmission(sub)} className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-all">Dossiê</button>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button 
-                        disabled={isDeletingId === sub.id}
-                        onClick={() => handleDelete(sub)}
-                        className={`p-2 rounded-lg transition-all ${isDeletingId === sub.id ? 'bg-slate-100 text-slate-300' : 'text-rose-400 hover:bg-rose-50 hover:text-rose-600'}`}
-                      >
-                        {isDeletingId === sub.id ? (
-                          <div className="w-4 h-4 border-2 border-slate-300 border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        )}
-                      </button>
+                    <td className="px-6 py-4 flex gap-2">
+                      <button onClick={() => setSelectedSubmission(sub)} className="text-indigo-600 font-bold text-xs">Dossiê</button>
+                      <button onClick={() => onDeleteSubmission(sub.id)} className="text-rose-500 font-bold text-xs">Excluir</button>
                     </td>
                   </tr>
-                ))
-              )}
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-fadeIn">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Advogado</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">OAB</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Telefone</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Acesso</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {advogados.map(adv => (
+                <tr key={adv.id}>
+                  <td className="px-6 py-4 font-bold text-slate-800">{adv.nome_completo}</td>
+                  <td className="px-6 py-4 font-mono text-sm">{adv.oab.substring(0,3)}.{adv.oab.substring(3)}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500">{adv.telefone}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-2">
+                      <button onClick={() => updateAdvogadoStatus(adv.id, 'Ativo')} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${adv.status === 'Ativo' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'}`}>Ativo</button>
+                      <button onClick={() => updateAdvogadoStatus(adv.id, 'Pendente')} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${adv.status === 'Pendente' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400 hover:bg-amber-50 hover:text-amber-600'}`}>Pendente</button>
+                      <button onClick={() => updateAdvogadoStatus(adv.id, 'Bloqueado')} className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${adv.status === 'Bloqueado' ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-400 hover:bg-rose-50 hover:text-rose-600'}`}>Bloquear</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-      </div>
+      )}
 
       {selectedSubmission && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 z-[100] animate-fadeIn">
-          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-white/20">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div>
-                <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Detalhes</span>
-                <h2 className="text-xl font-bold text-slate-800">{selectedSubmission.name}</h2>
-              </div>
-              <button onClick={() => setSelectedSubmission(null)} className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-slate-400 hover:text-slate-800 transition-all">✕</button>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 z-[100]">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold">{selectedSubmission.name}</h2>
+              <button onClick={() => setSelectedSubmission(null)}>✕</button>
             </div>
             <div className="p-8 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Contato</h3>
-                  <p className="text-sm"><strong>RE:</strong> {selectedSubmission.re}</p>
-                  <p className="text-sm"><strong>E-mail:</strong> {selectedSubmission.email}</p>
-                  <p className="text-sm"><strong>WhatsApp:</strong> {selectedSubmission.phone}</p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Processo</h3>
-                  <p className="text-sm"><strong>Modalidade:</strong> {selectedSubmission.isJudicial ? 'Judicial' : 'Administrativo'}</p>
-                  <p className="text-sm"><strong>Data de Cadastro:</strong> {new Date(selectedSubmission.createdAt).toLocaleString('pt-BR')}</p>
-                  <p className="text-sm"><strong>Status Atual:</strong> <span className={`px-2 py-0.5 rounded text-[10px] ${getStatusColor(selectedSubmission.status)}`}>{selectedSubmission.status}</span></p>
-                </div>
+              <div className="grid grid-cols-2 gap-4 mb-8 bg-slate-50 p-6 rounded-2xl">
+                <div><p className="text-xs uppercase text-slate-400 font-bold">Contato</p><p>{selectedSubmission.email}<br/>{selectedSubmission.phone}</p></div>
+                <div><p className="text-xs uppercase text-slate-400 font-bold">RE</p><p>{selectedSubmission.re}</p></div>
               </div>
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">Documentos em Anexo</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {selectedSubmission.files.map((file, idx) => (
-                  <div key={idx} className="group flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-200 hover:border-indigo-500 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-bold text-xs">PDF</div>
-                      <div className="min-w-0">
-                        <span className="text-[9px] font-black text-indigo-400 uppercase block">{file.category}</span>
-                        <span className="font-bold text-slate-700 block text-xs truncate max-w-[150px]">{file.name}</span>
-                      </div>
-                    </div>
-                    <button onClick={() => handleDownloadFile(file.url, file.name)} className="bg-slate-900 text-white p-2 rounded-xl hover:bg-black transition-all">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    </button>
+                {selectedSubmission.files.map((f, i) => (
+                  <div key={i} className="p-4 border rounded-xl flex justify-between items-center">
+                    <div><p className="text-[10px] uppercase font-black text-indigo-400">{f.category}</p><p className="text-sm font-bold">{f.name}</p></div>
+                    <a href={f.url} download={f.name} className="bg-indigo-600 text-white p-2 rounded-lg">↓</a>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="p-6 bg-slate-50 border-t border-slate-100 text-center text-[10px] text-slate-400 uppercase font-bold tracking-[0.2em]">Assessoria Jurídica Militar 2026</div>
           </div>
         </div>
       )}

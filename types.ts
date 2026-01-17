@@ -16,6 +16,15 @@ export interface OfficerSubmission {
   agreedToTerms: boolean;
 }
 
+export interface Advogado {
+  id: string;
+  oab: string;
+  nome_completo: string;
+  telefone: string;
+  status: 'Pendente' | 'Ativo' | 'Bloqueado';
+  created_at: string;
+}
+
 export enum ViewMode {
   CLIENT = 'CLIENT',
   ADMIN = 'ADMIN'
